@@ -4,6 +4,8 @@
 Marina Heniková<sup>1,2</sup>, Anna Ouřadová<sup>1</sup>, Eliška Selinger<sup>1,3</sup>, Filip Tichanek<sup>4</sup>, Petra Polakovičová<sup>4</sup>, Dana Hrnčířová<sup>2</sup>, Pavel Dlouhý<sup>2</sup>, Martin Světnička<sup>5</sup>, Eva El-Lababidi<sup>5</sup>, Jana Potočková<sup>1</sup>, Tilman Kühn<sup>6</sup>, Monika Cahová<sup>4</sup>, Jan Gojda<sup>1</sup>
 </div>
 
+<br>
+
 <sup>1</sup> Department of Internal Medicine, Kralovske Vinohrady University Hospital and Third Faculty of Medicine, Charles University, Prague, Czech Republic.  
 <sup>2</sup> Department of Hygiene, Third Faculty of Medicine, Charles University, Prague, Czech Republic.  
 <sup>3</sup> National Health Institute, Prague, Czech Republic.  

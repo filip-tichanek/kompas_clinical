@@ -1,0 +1,66 @@
+---
+title: "Dietary intake, Nutritional status, and Health outcomes among Vegan, Vegetarian and Omnivore families: results from the observational study"
+subtitle: "Reports hub"
+format: 
+  html:  
+    embed-resources: true
+    keep-md: false
+    toc: false
+    toc-expand: 3
+    toc-depth: 4
+    toc-location: left
+    number-sections: false
+    number-depth: 4
+    code-fold: show
+    code-tools: true
+    code-summary: "Open code"
+    grid: 
+      body-width: 1000px
+      sidebar-width: 600px
+      margin-width: 100px
+editor: source
+project:
+  type: default
+  output-dir: output
+theme: darkly
+highlight-style: github-dark
+fontsize: 12 px
+code-block-bg: '#2D2D31'
+fontcolor: '#C4C4C4'
+monobackgroundcolor: '#3B3B3B'
+bibliography: references.bib
+---
+
+----------------------------------------------------------------------------------------------------
+
+# Reports hub
+
+All reports use an initialization file and custom R functions file. The [initialization](https://github.com/filip-tichanek/kompas_clinical/blob/main/368_initiation.R) file includes basic data preprocessing and wrangling, loading packages, etc. The custom [R functions](https://github.com/filip-tichanek/kompas_clinical/blob/main/368_functions.R) contains definition and description of each custom function used for this project in Roxygen format.
+
+A report, [368_G_Methods](368_G_Methods.html), describes the statistical methodology for the entire study.
+
+The report [368_A_Wrangling_Summary](368_A_Wrangling_Summary.html) provides basic data exploration.
+
+- **Section 2** explores clinical characteristics across diet groups.
+  - **Section 2.2** presents medians and quartiles of clinical characteristics for each age (sub)group.
+  - **Section 2.3** shows the distribution of numerical variables (the clinical characteristics).
+  - **Section 2.4** visualizes the differences in clinical characteristics across diet groups.
+- **Section 3** details food and nutrition intake across diet groups.
+
+Reports 368_B_[...] present quantile regression analyses with additional cluster bootstrap, performed across different clinical characteristics.
+[368_B1_QuantReg_all_child](368_B1_QuantReg_all_child.html) provides a joint analysis for all children.
+[368_B2_QuantReg_young_child](368_B2_QuantReg_young_child.html) shows the analysis for children under 3 years old.
+[368_B3_QuantReg_old_child](368_B3_QuantReg_old_child.html) shows the analysis for children aged 3 years and older.
+[368_B4_QuantReg_adult](368_B4_QuantReg_adult.html) presents the analysis for adults.
+
+The report [368_C_QuantReg_Summary](368_C_QuantReg_Summary.html) compiles results from quantile regression across age groups into summary tables, volcano plots (diet effect), and heatmaps (importance of predictors estimated with AIC).
+
+Reports 368_D_[...] present mixed-effects models across different clinical characteristics.
+[368_D1_MixedEff_all_child](368_D1_MixedEff_all_child.html) provides joint mixed-effects models for all children.
+[368_D2_MixedEff_young_child](368_D2_MixedEff_young_child.html) shows the analysis for children under 3 years old.
+[368_D3_MixedEff_old_child](368_D3_MixedEff_old_child.html) shows the analysis for children aged 3 years and older.
+[368_D4_MixedEff_adult](368_D4_MixedEff_adult.html) presents mixed-effects models for adults.
+
+The report [368_E_MixedEff_Summary](368_E_MixedEff_Summary.html) reports results from mixed-effects models across age groups, in summary tables, volcano plots (diet effect), and heatmaps (importance of predictors and magnitude of family clustering, estimated via AIC).
+
+The report [368_F_ElasticNet](368_F_ElasticNet.html) shows elastic net logistic regression, i.e., models learning to discriminate between diet groups based on clinical characteristics.
