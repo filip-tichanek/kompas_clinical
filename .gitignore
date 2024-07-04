@@ -1,0 +1,7 @@
+*.bib
+*.Rhistory
+*.html
+*.xlsx
+introduction.md
+index.qmd
+LICENSE
