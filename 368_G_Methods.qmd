@@ -1,0 +1,132 @@
+---
+title: "Dietary intake, Nutritional status, and Health outcomes among Vegan, Vegetarian and Omnivore families: results from the observational study"
+subtitle: "Statistical report - methods and results description"
+format: 
+  html:  
+    embed-resources: true
+    keep-md: false
+    toc: true
+    toc-expand: 3
+    toc-depth: 4
+    toc-location: left
+    number-sections: true
+    number-depth: 4
+    code-fold: show
+    code-tools: true
+    code-summary: "Open code"
+    grid: 
+      body-width: 1000px
+      sidebar-width: 600px
+      margin-width: 100px
+editor: source
+project:
+  type: default
+  output-dir: output
+theme: darkly
+highlight-style: github-dark
+fontsize: 12 px
+code-block-bg: '#2D2D31'
+fontcolor: '#C4C4C4'
+monobackgroundcolor: '#3B3B3B'
+bibliography: references.bib
+---
+
+------------------------------------------------------------------------
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(collapse = TRUE)
+```
+
+```{css, echo=FALSE}
+code.sourceCode {
+  font-size: 0.85em;
+  border: 1px solid #ffffff; /* White border */
+  padding: 20px; /* Add padding for better visibility */
+}
+
+code{
+    color: #EEE8AA; /* Change the color value as needed */
+}
+
+.equation {
+  text-align: center;
+  display: block;
+  margin: auto;
+}
+
+body {
+  text-align: justify;
+}
+
+```
+
+{{< include README.md >}}
+
+## Statistical methods
+
+All statistical analyses were conducted using R, version 4.4.0 (2024-04-24) [@Rcomp]. Data were visualized mainly with help of `ggplot2` [@ggplot2] and `ggpubr` [@ggpubr] R packages.
+
+### Summary statistics
+
+Summary statistics are reported as median and inter-quartile range (numerical variables) or number with percentages. The overall difference among groups was evaluated using either Kruskal-Wallis test (numerical variables) or Chi-squared or Fisher test (categorical variables; Fisher test when there are not at lest 5 individuals in each contingency table cell, Chi-squared otherwise). Difference between the pair of group were evaluated using Mann-Whitney U test (numerical variables) or as overall test but with subset of individuals (categorical variables). All was done with help of `gtsummary` [@gtsummary]. To control false positive rate, we used FDR correction for multiple comparison, accounting for large number of characteristics being compared.
+
+### Adjusted quantile regression
+
+We utilized the `quantreg` [@quantreg] R package for quantile regression to assess differences in numerical clinical outcomes between diet groups. Our focus extended beyond central tendency (median values) to the broader distribution of clinical values, modeling the median but also 20th and 80th percentiles of each clinical outcome. All models incorporated non-parametric bootstrap resampling (21,000 resamplings) customized to maintain family-wise integrity, ensuring whole families were resampled as units. This method mitigates within-family data dependency and guards against type I statistical error inflation. Differences reported, along with their 95% confidence intervals and p-values, were derived from percentile bootstrap.
+
+Quantile models evaluated diet group differences, adjusting for potential confounders such as age (log-transformed for children), sex, and breastfeeding-related covariates. The breastfeeding-related covariates include milk dependence (0/1, omitted from analyses of children older than 3 years), additional breastfeeding (0/1, omitted from analyses of children older than 3 years), and the duration of breastfeeding dependency (in months). Outcomes are presented both as adjusted diet-related differences on the original scale and as standardized differences (per 1 standard deviation of the outcome), with supplementation status also accounted for as a covariate when relevant (e.g., biogenic elements and vitamins).
+
+Specifically, the quantile modeling process included:
+
+1.  Fitting a random-intercept generalized additive model (GAMM) with age as a non-linear predictor using the mgcv [@mgcv-2] R package.
+
+2.  Exploring residuals' distribution through diagnostic plots and refitting the GAMM with a log2-transformation of the outcome in cases of observed heteroscedasticity or suspected multiplicative response patterns.
+
+3.  Assessing the linearity of the age effect. Both linear and quadratic forms of the age predictor were included in further quantile models when non-linearity was detected.
+
+4.  Applying quantile regression with bootstrap, specified according to the previous steps.
+
+5.  Conducting further quantile models excluding specific covariates to evaluate their importance for each clinical outcome prediction. The Akaike Information Criterion (AIC) measured covariate importance regarding estimated out-of-sample predictive accuracy. A decrease in AIC after a covariate's inclusion suggests an improvement in the model's predictive capability.
+
+P-values from different outcomes and estimands analyses (20th, 50th, and 80th percentiles) underwent Benjamini-Hochberg [@benjamini2000a] correction to address multiple comparisons (9 comparisons per clinical characteristic due to 3 group comparisons and 3 estimands). Results were visualized in volcano plots (adjusted standardized difference between diet groups) and heatmaps (AIC change after covariate removal). We finally decided to report unadjusted p-values in the manuscript to increase the sensitivity of our study towards potential risks.
+
+### Linear mixed-effects models
+
+Linear mixed effect was used for similar purpose as the quantile regression. Although mixed models does not enable different quantiles, they provide an evaluation of the importance of the family for the clinical characteristics despite that the factor `family` is nested within the `diet` factor. We used `robustlmm` package [@robustlmm] for main models and `lme4` package [@lme4] for models comparisons with AIC. Predictors were the same as for quantile regression. As almost all families have a single child under 3 year old, the mixed effect models were not performed in this subgroup (here we used `lm` function from base R and robust regression function `rlm` from `MASS` R package [@MASS].
+
+Specifically, for each of clinical characteristics, we did following:
+
+1.  Applying robust mixed-effect model with all predictors as for quantile regression + random effect of family
+2.  Conducting further mixed effects model with `lme4` package, excluding specific covariates, or random effect of family, to evaluate their importance for each clinical outcome prediction. As in quantile regression, a decrease in AIC after a covariate's inclusion suggests a significant contribution to the model's predictive capability.
+
+P-values from different outcomes underwent Benjamini-Hochberg [@benjamini2000a] correction to address multiple comparisons (comparisons of 3 groups). As in quantile regression, results were visualized in volcano plots (adjusted standardized difference between diet groups) and heatmaps (AIC change after covariate removal).
+
+For binary outcomes, we applied logistic generalized linear additive mixed-effects models (GAMM), reporting odds ratios (OR).
+
+### Diet prediction
+
+To assess the predictive power of clinical outcomes on diet strategy, we employed Elastic Net logistic regression, utilizing the `glmnet` R package [@glmnet].
+
+For each demographic cohort -- adults, children, and age-specific subgroups within children -- we began by fitting a baseline model incorporating basic subject characteristics (age, sex, and, for children, breastfeeding status) as predictors. Subsequently, we expanded our analysis with a more complex model that included both these basic characteristics and diverse clinical outcomes as predictors. The predictive models used only the subjects with less than 25% missing values and feature with less than 20% missing values. Other missing values were imputed with mean substitution, and all numerical predictors were standardized to a scale of 2 standard deviations using the arm R package [@arm-2] to ensure scale comparability.
+
+The performance of the predictive models was evaluated through their capacity of discriminate between the pair of diets out-of trained data, using area under ROC curve (AUC) as the measure of discriminatory capacity (estimated with `pROC` R package [@pROC]). To achieve this, we used cluster bootstrap resampling (500 simulations) method that maintained family-wise integrity in training and testing sets (ensuring all members of a single family were either resampled or not) to avoid data leakage and accuracy overestimation. The validation using cluster bootstrap was performed with out custom functions. Estimated accuracies (area under ROC curve, AUC) was compared against a baseline model (subjects' characteristics only).
+
+The process of building the elastic net models and estimating accuracy involved the following steps:
+
+1.  The `cv.glmnet` function from the `glmnet` package was utilized to determine the optimal alpha and lambda value (`lambda.1se` was selected for use).
+
+2.  The `glmnet` function from the `glmnet` package was used to fit model using all available data and hyperparameters values optimized in the previous step.
+
+3.  Data were resampled 500 times, with all members of a single family allocated to the resampled dataset together to maintain family unit integrity. Hyperparameters were re-optimized again for each resample.
+
+4.  The `glmnet` function was applied with resampled data for training. Data of families that **were NOT** present in the i-th (resampled) dataset were used for estimation of out-of-sample AUC (validation). This was done for all resamples, totaling 500 iterations.
+
+5.  The average AUC and 2.5th and 97.5th percentiles were reported as `out-of-sample AUC` and its bounds of 95% confidence intervals.
+
+6.  Difference between out-of-sample AUCs of baseline vs. complex model was calculated for each data resample, obtaining average difference in AUC (expressed as `AUC_gain`) and its 95% CI
+
+# Reproducibility
+
+```{r, collapse=TRUE}
+sessionInfo()
+```

@@ -1,0 +1,3887 @@
+---
+title: "Dietary intake, Nutritional status, and Health outcomes among Vegan, Vegetarian and Omnivore families: results from the observational study"
+subtitle: 'Statistical report - mixed-effects models in adults'
+format: 
+  html:  
+    embed-resources: true
+    keep-md: false
+    toc: true
+    toc-expand: 3
+    toc-depth: 5
+    toc-location: left
+    number-sections: true
+    number-depth: 4
+    code-fold: show
+    code-tools: true
+    code-summary: 'Open code'
+    grid: 
+      body-width: 1000px
+      sidebar-width: 600px
+      margin-width: 100px
+editor: source
+project:
+  type: default
+  output-dir: output
+theme: darkly
+highlight-style: github-dark
+fontsize: 12 px
+code-block-bg: "#2D2D31"
+fontcolor: "#C4C4C4"
+monobackgroundcolor: "#3B3B3B"
+bibliography: references.bib
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(collapse = TRUE)
+```
+
+```{css, echo=FALSE}
+code.sourceCode {
+  font-size: 0.85em;
+  border: 1px solid #ffffff; /* White border */
+  padding: 20px; /* Add padding for better visibility */
+}
+
+code{
+    color: #EEE8AA; /* Change the color value as needed */
+}
+
+.equation {
+  text-align: center;
+  display: block;
+  margin: auto;
+}
+
+body {
+  text-align: justify;
+}
+
+```
+
+{{< include README.md >}}
+
+# Analysis
+
+## Import initiation file
+
+```{r}
+source('368_initiation.R')
+```
+
+
+## Mixed models
+
+
+Adults models will be adjusted for the effect of `aAGE`, `SEX`. Relevant supplementation for vitamins and biogenic elements will be added as covariates.
+
+```{r}
+AIC_adult <- data.frame(outcome = NA,
+                            estimand = NA,
+                            aAGE = NA,
+                            aSEX = NA,
+                            other_cov = NA,
+                            diet = NA,
+                            family = NA)
+
+diet_adult <- data.frame(outcome = NA,
+                         estimand = NA,
+                         VN_OM_diff = NA, 
+                         VN_OM_P = NA,
+                         VG_OM_diff = NA, 
+                         VG_OM_P = NA,
+                         VN_VG_diff = NA, 
+                         VN_VG_P = NA)
+
+i = 1
+j = 1
+ni= 5
+```
+
+### aBMI
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on body mass index, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aWHR
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on waist-to-hip ratio, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aHEIGHT
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on body height, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aMASS
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on body mass, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aHG
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on hand grip, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aPFAT
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on body fat percentage, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aFAT
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(body fat weight), estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aFFM
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on free fat mass, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aSBP
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on systolic blood pressure, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aDBP
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on diastolic blood pressure, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aGLY
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on glucose level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aTC
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(total cholesterole) level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aHDL
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on HDL cholesterol level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aLDL
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on LDL cholesterol level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aTG
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(Triglyceride), estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aCa
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Ca)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_Ca')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum calcium level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_Ca'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Ca'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_Ca'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_Ca'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_Ca'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aP
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum phosphorous level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Ca'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aMg
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Mg)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_Mg')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum magnesium level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_Mg'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Mg'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_Mg'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_Mg'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_Mg'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aSe
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Se)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_Se')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum selenium level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_Se'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Se'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_Se'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_Se'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_Se'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aZn
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Zn)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_Zn')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum log2(zinc) level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+
+
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_Zn'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Zn'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_Zn'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_Zn'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_Zn'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aFE
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_Fe')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum Fe level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_Fe'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_Fe'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_Fe'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aVKFE
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_Fe')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum log2(ferritin Fe binding capacity), estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_Fe'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_Fe'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_Fe'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aFERR
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_Fe')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum log2(ferritin) level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_Fe'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_Fe'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_Fe'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aTRF
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_Fe')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum log2(transferin) level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_Fe'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_Fe'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_Fe'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aSATTRF
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_Fe')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on transferin saturation, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_Fe'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_Fe'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_Fe'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aTRFINDEX
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_Fe')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(sTfR index - ratio), estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_Fe'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_Fe'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_Fe'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aSTRF
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_Fe')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(soluble transferon receptor), estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_Fe'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_Fe'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_Fe'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aHGB
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on hemoglobin level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aMCV
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on mean corpuscular volume, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aPTH
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on parathormone level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aCros
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Ca), 
+         !is.na(aSUP_D)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_Ca', 'aSUP_D')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(beta-CrossLaps) level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_Ca', 'aSUP_D'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Ca', 'aSUP_D'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_Ca', 'aSUP_D'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_Ca', 'aSUP_D'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_Ca', 'aSUP_D'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+
+### aP1NP
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Ca), 
+         !is.na(aSUP_D)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_Ca', 'aSUP_D')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(procollagen type I) level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_Ca', 'aSUP_D'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Ca', 'aSUP_D'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_Ca', 'aSUP_D'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_Ca', 'aSUP_D'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_Ca', 'aSUP_D'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aUI
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on urinary iodine level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aUREA
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(urea) level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aCREA
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(creatinine) level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aUA
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on uric acid level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aVIT_AKTB12
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSup_B12)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSup_B12')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(vitamin B12) level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSup_B12'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSup_B12'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSup_B12'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSup_B12'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSup_B12'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aHCY
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(homocystain), estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aMMA
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult'),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(methylmalonic acid) level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult')
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult')
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+  type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+  type = 'adult')
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aVIT_D
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_D)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_D')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(vitamin D) level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_D'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_D'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_D'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_D'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_D'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aFOLAT
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_FOL)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = FALSE,
+       type = 'adult',
+       include = c('aSUP_FOL')),
+  
+  path = paste0('gitignore/run/mod_adult_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on folat level, estimated with a robust linear mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+### main model but non-robust
+mod_main <- rlme( 
+  remove_random = FALSE,
+  type = 'adult',
+  include = c('aSUP_FOL'))
+
+### model  without random effect
+mod_nonran <- rlme(
+  remove_random = TRUE,
+  type = 'adult',
+  include = c('aSUP_Fe'))
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 include = c('aSUP_FOL'),
+                 type = 'adult')
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  include = c('aSUP_FOL'),
+                  type = 'adult')
+
+### model without other
+mod_other_cov <- rlme(type = 'adult')
+
+### model without age
+mod_age <- rlme(exclude = c('aAGE'),
+                include = c('aSUP_FOL'),
+                type = 'adult')
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aAL_adult
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+column_name <- names(dat_adult)[i+ni]
+column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+```
+
+Main model
+
+```{r, fig.height=5, fig.width=5}
+
+mod_main <- glmer(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aAGE +
+    (1|FAM),
+  family = binomial(link = 'logit'),
+  data = dat_mod)
+
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on the likelihood of food allergy, estimated with a logistic mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped', full_width = TRUE) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE, message=FALSE}
+
+### model  without random effect
+mod_nonran <- glm(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aAGE,
+  family = binomial(link = 'logit'),
+  data = dat_mod)
+
+### model without sex
+mod_nsex <- glmer(
+  outcome ~ 
+    GRP +
+    aAGE +
+    (1|FAM),
+  family = binomial(link = 'logit'),
+  data = dat_mod)
+
+### model without diet groups
+mod_ndiet <- glmer(
+  outcome ~ 
+    SEX + 
+    aAGE +
+    (1|FAM),
+  family = binomial(link = 'logit'),
+  data = dat_mod)
+
+### model without other covariates
+mod_other_cov <- NA
+
+### model without log2_age
+mod_age <- glmer(
+  outcome ~ 
+    SEX + 
+    GRP +
+    (1|FAM),
+  family = binomial(link = 'logit'),
+  data = dat_mod)
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+diet_adult$estimand[i+1] <- 'log(OR)'
+
+i = i+1
+```
+
+
+### aBREAKS
+
+Data selection
+
+```{r, fig.height=7, fig.width=7}
+
+column_name <- 'aBREAKS'
+column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+```
+
+Main model
+
+```{r, fig.height=5, fig.width=5}
+
+mod_main <- glmer(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aAGE +
+    (1|FAM),
+  family = binomial(link = 'logit'),
+  data = dat_mod)
+
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on the likelihood of having experience of bone break, estimated with a logistic mixed-effects model in adults. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped', full_width = TRUE) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor mixed models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE, message=FALSE}
+
+### model  without random effect
+mod_nonran <- glm(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aAGE,
+  family = binomial(link = 'logit'),
+  data = dat_mod)
+
+### model without sex
+mod_nsex <- glmer(
+  outcome ~ 
+    GRP +
+    aAGE +
+    (1|FAM),
+  family = binomial(link = 'logit'),
+  data = dat_mod)
+
+### model without diet groups
+mod_ndiet <- glmer(
+  outcome ~ 
+    SEX + 
+    aAGE +
+    (1|FAM),
+  family = binomial(link = 'logit'),
+  data = dat_mod)
+
+### model without other covariates
+mod_other_cov <- NA
+
+### model without log2_age
+mod_age <- glmer(
+  outcome ~ 
+    SEX + 
+    GRP +
+    (1|FAM),
+  family = binomial(link = 'logit'),
+  data = dat_mod)
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_adult <- add_AIC_adult(AIC_adult, mixef = TRUE)
+
+diet_adult <- add_eff(diet_adult, res, mixef = TRUE)
+diet_adult$estimand[i+1] <- 'log(OR)'
+```
+
+### Saving tables
+
+```{r}
+
+## Between-diets differences
+
+if(file.exists('gitignore/data/diet_adult_mixeff.xlsx') == FALSE){
+  diet_adult <- diet_adult[-1,]
+  
+  diet_adult$VN_OM_P_adj <- NA
+  diet_adult$VG_OM_P_adj <- NA
+  diet_adult$VN_VG_P_adj <- NA
+  
+for (i in seq(1, nrow(diet_adult))) {
+  padj <- p.adjust(c(
+    diet_adult$VN_OM_P[i], 
+    diet_adult$VG_OM_P[i],
+    diet_adult$VN_VG_P[i]), 
+    method = 'hochberg')
+  
+  diet_adult$VN_OM_P_adj[i] <- padj[1]
+  diet_adult$VG_OM_P_adj[i] <- padj[2]
+  diet_adult$VN_VG_P_adj[i] <- padj[3]
+}
+  
+  diet_adult <- diet_adult %>%
+    
+    select(outcome, estimand, 
+         VN_OM_diff, VN_OM_P, VN_OM_P_adj,
+         VG_OM_diff, VG_OM_P, VG_OM_P_adj,
+         VN_VG_diff, VN_VG_P, VN_VG_P_adj) %>%
+    
+    mutate(across(.cols = 3:11, .fns = ~as.numeric(as.character(.)))) %>% 
+    mutate(across(.cols = c(VN_OM_P, VG_OM_P, VN_VG_P,
+                            VN_OM_P_adj, VG_OM_P_adj, VN_VG_P_adj), ~ round(.x, 5)))
+
+  write.xlsx(diet_adult, 'gitignore/data/diet_adult_mixeff.xlsx')
+}
+
+## Importance of predictors
+
+if(file.exists('gitignore/data/AIC_adult_mixeff.xlsx') == FALSE){
+  AIC_adult <- AIC_adult[-1,]
+  write.xlsx(AIC_adult, 'gitignore/data/AIC_adult_mixeff.xlsx')
+  }
+```
+
+# Reproducibility
+
+```{r}
+sessionInfo()
+```

@@ -1,0 +1,946 @@
+---
+title: "Dietary intake, Nutritional status, and Health outcomes among Vegan, Vegetarian and Omnivore families: results from the observational study"
+subtitle: "Statistical report - data wrangling and exploration"
+author: "Cahova et al."
+format: 
+  html:  
+    embed-resources: true
+    keep-md: false
+    toc: true
+    toc-expand: 3
+    toc-depth: 5
+    toc-location: left
+    number-sections: true
+    number-depth: 4
+    code-fold: show
+    code-tools: true
+    code-summary: "Open code"
+    grid: 
+      body-width: 1000px
+      sidebar-width: 600px
+      margin-width: 100px
+editor: source
+project:
+  type: default
+  output-dir: output
+theme: darkly
+highlight-style: github-dark
+fontsize: 12 px
+code-block-bg: "#2D2D31"
+fontcolor: "#C4C4C4"
+monobackgroundcolor: "#3B3B3B"
+bibliography: references.bib
+---
+
+------------------------------------------------------------------------
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(collapse = TRUE)
+```
+
+```{css, echo=FALSE}
+code.sourceCode {
+  font-size: 0.85em;
+  border: 1px solid #ffffff; /* White border */
+  padding: 20px; /* Add padding for better visibility */
+}
+
+code{
+    color: #EEE8AA; /* Change the color value as needed */
+}
+
+.equation {
+  text-align: center;
+  display: block;
+  margin: auto;
+}
+
+body {
+  text-align: justify;
+}
+
+```
+
+{{< include README.md >}}
+
+# Analysis
+
+## Import initiation file
+
+```{r}
+source('368_initiation.R')
+```
+
+
+## Subject characteristics table
+
+### All children characteristics table
+
+Comparison of clinical outcomes across diet groups in children
+
+#### Overall
+
+```{r, warning=FALSE, message=FALSE}
+
+DatChar_child_all <- run(
+  dat_child_all_tosum %>% 
+    select(-FAM, -ID) %>% 
+    tbl_summary(
+      by = 'GRP',
+      type = list(
+        aBreastFeed_full ~ 'continuous',
+        aBreastFeed_total ~ 'continuous')
+              ) %>%
+    modify_caption("Supplementary Table 1. Children characteristics according to food preferences, all children") %>% 
+    add_p() %>% 
+    add_q(),
+  
+  path = 'gitignore/run/DatChar_child_all', reuse = TRUE)
+
+
+DatChar_child_all
+
+DatChar_child_all_df <- DatChar_child_all$table_body %>%
+  as_tibble()
+```
+
+#### OM vs VG
+
+```{r, warning=FALSE}
+
+DatChar_child_all_OM_VG <- run(
+  dat_child_all_tosum %>%
+    select(-FAM, -ID) %>%
+    filter(GRP == 'OM' | GRP == 'VG') %>%
+    mutate(GRP = factor(GRP)) %>% 
+    tbl_summary(
+      by = 'GRP',
+      type = list(
+        aBreastFeed_full ~ 'continuous',
+        aBreastFeed_total ~ 'continuous')) %>%
+    modify_caption("OM vs VG, all children") %>% 
+    add_p() %>% 
+    add_q() %>% 
+    as_gt(),
+   path = 'gitignore/run/DatChar_child_all_OM_VG', reuse=TRUE)
+
+DatChar_child_all_OM_VG
+```
+
+
+#### OM vs VG
+
+```{r, warning=FALSE}
+
+DatChar_child_all_OM_VN <- run(
+  dat_child_all_tosum %>%
+    select(-FAM, -ID) %>%
+    filter(GRP == 'OM' | GRP == 'VN') %>%
+    mutate(GRP = factor(GRP)) %>% 
+    tbl_summary(
+      by = 'GRP',
+      type = list(
+        aBreastFeed_full ~ 'continuous',
+        aBreastFeed_total ~ 'continuous')) %>%
+    modify_caption("OM vs VN, only children >3 year all included") %>% 
+    add_p() %>% 
+    add_q() %>% 
+    as_gt(),
+   path = 'gitignore/run/DatChar_child_all_OM_VN', reuse=TRUE)
+
+DatChar_child_all_OM_VN
+```
+
+#### VG vs VN
+
+```{r, warning=FALSE}
+
+DatChar_child_all_VG_VN <- run(
+  dat_child_all_tosum %>%
+    select(-FAM, -ID) %>%
+    filter(GRP == 'VG' | GRP == 'VN') %>%
+    mutate(GRP = factor(GRP)) %>% 
+    tbl_summary(
+      by = 'GRP',
+      type = list(
+        aBreastFeed_full ~ 'continuous',
+        aBreastFeed_total ~ 'continuous')) %>%
+    modify_caption("VG vs VN, only children >3 year all included") %>% 
+    add_p() %>% 
+    add_q() %>% 
+    as_gt(),
+   path = 'gitignore/run/DatChar_child_all_VG_VN', reuse=TRUE)
+
+DatChar_child_all_VG_VN
+```
+
+### Children >3 y.o. characteristics table
+
+#### Overall
+
+```{r, warning=FALSE}
+
+DatChar_child_old <- run(
+  dat_child_old_tosum %>% 
+    select(-FAM, -ID) %>% 
+    tbl_summary(
+      by='GRP',
+      type = list(
+        aBreastFeed_full ~ 'continuous',
+        aBreastFeed_total ~ 'continuous')) %>%
+  
+      modify_caption("Supplementary Table 2. Children characteristics according to food preferences, with only children >3 year old included") %>% 
+    
+    add_p() %>% 
+    add_q(),
+  
+  path = 'gitignore/run/DatChar_child_old', reuse=TRUE)
+
+DatChar_child_old
+
+DatChar_child_old_df <- DatChar_child_old$table_body %>%
+  as_tibble()
+```
+
+#### OM vs VG
+
+```{r, warning=FALSE}
+
+DatChar_child_old_OM_VG <- run(
+  dat_child_old_tosum %>%
+    select(-FAM, -ID) %>%
+    filter(GRP == 'OM' | GRP == 'VG') %>%
+    mutate(GRP = factor(GRP)) %>% 
+    tbl_summary(
+      by = 'GRP',
+      type = list(
+        aBreastFeed_full ~ 'continuous',
+        aBreastFeed_total ~ 'continuous')) %>%
+    modify_caption("OM vs VG, only children >3 year old included") %>% 
+    add_p() %>% 
+    add_q() %>% 
+    as_gt(),
+   path = 'gitignore/run/DatChar_child_old_OM_VG', reuse=TRUE)
+
+DatChar_child_old_OM_VG
+```
+
+
+#### OM vs VN
+
+```{r, warning=FALSE}
+
+DatChar_child_old_OM_VN <- run(
+  dat_child_old_tosum %>%
+    select(-FAM, -ID) %>%
+    filter(GRP == 'OM' | GRP == 'VN') %>%
+    mutate(GRP = factor(GRP)) %>% 
+    tbl_summary(
+      by = 'GRP',
+      type = list(
+        aBreastFeed_full ~ 'continuous',
+        aBreastFeed_total ~ 'continuous')) %>%
+    modify_caption("OM vs VN, only children >3 year old included") %>% 
+    add_p() %>% 
+    add_q() %>% 
+    as_gt(),
+   path = 'gitignore/run/DatChar_child_old_OM_VN', reuse=TRUE)
+
+DatChar_child_old_OM_VN
+```
+
+#### VG vs VN
+
+```{r, warning=FALSE}
+
+DatChar_child_old_VG_VN <- run(
+  dat_child_old_tosum %>%
+    select(-FAM, -ID) %>%
+    filter(GRP == 'VG' | GRP == 'VN') %>%
+    mutate(GRP = factor(GRP)) %>% 
+    tbl_summary(
+      by = 'GRP',
+      type = list(
+        aBreastFeed_full ~ 'continuous',
+        aBreastFeed_total ~ 'continuous')) %>%
+    modify_caption("VG vs VN, only children >3 year old included") %>% 
+    add_p() %>% 
+    add_q() %>% 
+    as_gt(),
+   path = 'gitignore/run/DatChar_child_old_VG_VN', reuse=TRUE)
+
+DatChar_child_old_VG_VN
+```
+
+
+### Children <3 y.o. characteristics table
+
+#### Overall
+
+```{r, warning=FALSE}
+
+DatChar_child_young <- run(
+  dat_child_young_tosum %>%
+    select(-FAM, -ID) %>% 
+    tbl_summary(
+      by = 'GRP',
+      type = list(
+        aBreastFeed_full ~ 'continuous',
+        aBreastFeed_total ~ 'continuous')) %>%
+    
+    modify_caption("Supplementary Table 3. Children characteristics according to food preferences, with only children <3 year old included") %>% 
+    add_p() %>% 
+    add_q(),
+  path = 'gitignore/run/DatChar_child_young', reuse=TRUE)
+
+DatChar_child_young
+
+DatChar_child_young_df <- DatChar_child_young$table_body %>%
+  as_tibble()
+```
+
+
+#### OM vs VG
+
+```{r, warning=FALSE}
+
+DatChar_child_young_OM_VG <- run(
+  dat_child_young_tosum %>%
+    select(-FAM, -ID) %>%
+    filter(GRP == 'OM' | GRP == 'VG') %>%
+    mutate(GRP = factor(GRP)) %>% 
+    tbl_summary(
+      by = 'GRP',
+      type = list(
+        aBreastFeed_full ~ 'continuous',
+        aBreastFeed_total ~ 'continuous')) %>%
+    
+    modify_caption("OM vs VG, with only children <3 year old included") %>% 
+    add_p() %>% 
+    add_q() %>% 
+    as_gt(),
+  path = 'gitignore/run/DatChar_child_young_OM_VG', reuse=TRUE)
+
+DatChar_child_young_OM_VG
+```
+
+
+#### OM vs VN
+
+```{r, warning=FALSE}
+
+DatChar_child_young_OM_VN <- run(
+  dat_child_young_tosum %>%
+    select(-FAM, -ID) %>%
+    filter(GRP == 'OM' | GRP == 'VN') %>%
+    mutate(GRP = factor(GRP)) %>% 
+    tbl_summary(
+      by = 'GRP',
+      type = list(
+        aBreastFeed_full ~ 'continuous',
+        aBreastFeed_total ~ 'continuous')) %>%
+    
+    modify_caption("OM vs VN, with only children <3 year old included") %>% 
+    add_p() %>% 
+    add_q() %>% 
+    as_gt(),
+  path = 'gitignore/run/DatChar_child_young_OM_VN', reuse=TRUE)
+
+DatChar_child_young_OM_VN
+```
+
+
+#### VG vs VN
+
+```{r, warning=FALSE}
+
+DatChar_child_young_VG_VN <- run(
+  dat_child_young_tosum %>%
+    select(-FAM, -ID) %>%
+    filter(GRP == 'VG' | GRP == 'VN') %>%
+    mutate(GRP = factor(GRP)) %>% 
+    tbl_summary(
+      by = 'GRP',
+      type = list(
+        aBreastFeed_full ~ 'continuous',
+        aBreastFeed_total ~ 'continuous')) %>%
+    
+    modify_caption("VG vs VN, with only children <3 year old included") %>% 
+    add_p() %>% 
+    add_q() %>% 
+    as_gt(),
+  path = 'gitignore/run/DatChar_child_young_VG_VN', reuse=TRUE)
+
+DatChar_child_young_VG_VN
+```
+
+
+### Adults characteristics table
+
+Comparison of clinical outcomes across diet groups in adults
+
+#### Overall
+
+```{r, collapse=TRUE}
+DatChar_adult <- run(
+  dat_adult %>% 
+    select(-FAM, -ID) %>% 
+    tbl_summary(by = 'GRP') %>%
+    modify_caption("Supplementary Table 4. Adults characteristics according to food preferences") %>% 
+    add_p() %>% 
+    add_q(),
+  
+  path = 'gitignore/run/DatChar_adult', reuse=TRUE)
+
+DatChar_adult
+
+DatChar_adult_df <- DatChar_adult$table_body %>%
+  as_tibble()
+```
+
+
+#### OM vs VG
+
+```{r, collapse=TRUE}
+DatChar_adult_OM_VG <- run(
+  dat_adult %>% 
+    select(-FAM, -ID) %>% 
+    filter(GRP == 'OM' | GRP == 'VG') %>%
+    mutate(GRP = factor(GRP)) %>% 
+    tbl_summary(by = 'GRP') %>%
+    modify_caption("OM vs VG. Adults characteristics according to food preferences") %>% 
+    add_p() %>% 
+    add_q() %>% 
+    as_gt(),
+  
+  path = 'gitignore/run/DatChar_adult_OM_VG', reuse=TRUE)
+
+DatChar_adult_OM_VG
+```
+
+
+#### OM vs VN
+
+```{r, collapse=TRUE}
+DatChar_adult_OM_VN <- run(
+  dat_adult %>% 
+    select(-FAM, -ID) %>% 
+    filter(GRP == 'OM' | GRP == 'VN') %>%
+    mutate(GRP = factor(GRP)) %>% 
+    tbl_summary(by = 'GRP') %>%
+    modify_caption("OM vs VN. Adults characteristics according to food preferences") %>% 
+    add_p() %>% 
+    add_q() %>% 
+    as_gt(),
+  
+  path = 'gitignore/run/DatChar_adult_OM_VN', reuse=TRUE)
+
+DatChar_adult_OM_VN
+```
+
+
+#### VG vs VN
+
+```{r, collapse=TRUE}
+DatChar_adult_VG_VN <- run(
+  dat_adult %>% 
+    select(-FAM, -ID) %>% 
+    filter(GRP == 'VG' | GRP == 'VN') %>%
+    mutate(GRP = factor(GRP)) %>% 
+    tbl_summary(by = 'GRP') %>%
+    modify_caption("VG vs VN. Adults characteristics according to food preferences") %>% 
+    add_p() %>% 
+    add_q() %>% 
+    as_gt(),
+  
+  path = 'gitignore/run/DatChar_adult_VG_VN', reuse=TRUE)
+
+DatChar_adult_VG_VN
+```
+
+
+## Distribution of numerical characteristics
+
+### All children histograms
+
+```{r, fig.height=12, fig.width=11, warning=FALSE}
+## Reshaping the data to long format
+dat_long <- dat_child_all
+
+dat_long <- dat_long %>% 
+  select(where(~is.numeric(.)  && length(unique(.)) >3)) %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>% 
+  mutate(variable = factor(variable, levels = names(dat_long)))
+
+# Creating the histogram matrix
+ggplot(dat_long, aes(x = value)) +
+  geom_histogram(bins = 20, fill = "skyblue2", color = "grey60") +
+  facet_wrap(~ variable, scales = "free") +
+  labs(x = "Value", y = "Count", title = "Histogram of Numerical Variables, all children")
+```
+
+### Young children histograms
+
+```{r, fig.height=12, fig.width=11, warning=FALSE, collapse=TRUE}
+## Reshaping the data to long format
+dat_long <- dat_child_young
+
+dat_long <- dat_long %>% 
+  select(where(~is.numeric(.)  && length(unique(.)) >3)) %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>% 
+  mutate(variable = factor(variable, levels = names(dat_long)))
+
+# Creating the histogram matrix
+ggplot(dat_long, aes(x = value)) +
+  geom_histogram(bins = 20, fill = "skyblue2", color = "grey60") +
+  facet_wrap(~ variable, scales = "free") +
+  labs(x = "Value", y = "Count", title = "Histogram of Numerical Variables, young children")
+```
+
+
+### Old children histograms
+
+```{r, fig.height=12, fig.width=11, warning=FALSE, collapse=TRUE}
+## Reshaping the data to long format
+dat_long <- dat_child_old
+
+dat_long <- dat_long %>% 
+  select(where(~is.numeric(.)  && length(unique(.)) >3)) %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>% 
+  mutate(variable = factor(variable, levels = names(dat_long)))
+
+# Creating the histogram matrix
+ggplot(dat_long, aes(x = value)) +
+  geom_histogram(bins = 20, fill = "skyblue2", color = "grey60") +
+  facet_wrap(~ variable, scales = "free") +
+  labs(x = "Value", y = "Count", title = "Histogram of Numerical Variables, old children")
+
+```
+
+### Adults histograms
+
+```{r, fig.height=12, fig.width=11, warning=FALSE, collapse=TRUE}
+## Reshaping the data to long format
+dat_long <- dat_adult
+
+dat_long <- dat_long %>% 
+  select(where(~is.numeric(.)  && length(unique(.)) >3)) %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>% 
+  mutate(variable = factor(variable, levels = names(dat_long)))
+
+# Creating the histogram matrix
+ggplot(dat_long, aes(x = value)) +
+  geom_histogram(bins = 20, fill = "skyblue2", color = "grey61") +
+  facet_wrap(~ variable, scales = "free") +
+  labs(x = "Value", y = "Count", title = "Histogram of Numerical Variables, adults ")
+
+```
+
+## Plot of group characteristics
+
+### All children
+
+```{r, fig.height=12, fig.width=12, warning=FALSE}
+## define color
+colo <- c('#F9FFAF', '#ACE1A3', '#329243')
+
+## prepare data
+df <- dat_child_all
+
+tr <- DatChar_child_all_df %>% 
+  filter(!is.na(q.value)) %>% 
+  select(variable, q.value)
+
+df <- df %>% 
+  select(where(~is.numeric(.)  && length(unique(.)) >3) | GRP) 
+
+## define outcomes of interest
+outcomes <- data.frame(
+  variable = setdiff(names(df), c(
+    'GRP', 
+    'log2_age', 
+    'aBreastFeed_full_duration')))
+  
+outcomes <- outcomes %>% 
+  inner_join(tr, by = 'variable')
+  
+## define comparison
+my_comparisons <- list( c('OM', 'VG'), c('OM', 'VN'), c('VG', 'VN') )
+
+## function to boxplot
+boxplot_cond <- function(variable, q.value) {
+  
+  clean_data <- df %>%
+    select(GRP, all_of(variable)) %>%
+    drop_na()
+  
+  upper_limit <- max(clean_data[[variable]], na.rm = TRUE) * 1.5
+  
+  p <- ggboxplot(clean_data, 
+                 x = 'GRP', 
+                 y = variable, 
+                 fill = 'GRP', 
+                 tip.length = 0.15,
+                 palette = colo,
+                 outlier.shape = 1,
+                 lwd = 0.25,
+                 outlier.size = 0.8) +
+    
+    theme(
+      plot.title = element_text(size = 10),   # Smaller title
+      axis.title = element_text(size = 8),    # Smaller axis titles
+      axis.text = element_text(size = 7)      # Smaller axis labels
+    ) +
+    
+    rremove("legend") +
+    
+    coord_cartesian(ylim = c(0, upper_limit))
+  
+  if (q.value < 0.05) {
+    p <- p + stat_compare_means(
+      method = 'wilcox.test',
+      label = 'P',
+      comparisons = my_comparisons,
+      size = 3,
+      label.y = upper_limit * c(0.7, 0.8, 0.9))
+  }
+  
+  return(p)
+}
+
+# Plot all outcomes
+plots <- pmap(outcomes, boxplot_cond)
+
+# Arrange plots in a matrix
+plots_arranged <- ggarrange(plotlist = plots, ncol = 8, nrow = 5)
+plots_arranged
+
+```
+
+
+### Young children
+
+```{r, fig.height=12, fig.width=12, warning=FALSE}
+## data
+df <- dat_child_young
+
+df <- df %>% 
+  select(where(~is.numeric(.)  && length(unique(.)) >3) | GRP) 
+
+## defining outcomes of interest
+tr <- DatChar_child_young_df %>% 
+  filter(!is.na(q.value)) %>% 
+  select(variable, q.value)
+
+df <- df %>% 
+  select(where(~is.numeric(.)  && length(unique(.)) >3) | GRP) 
+
+## define outcomes of interest
+outcomes <- data.frame(
+  variable = setdiff(names(df), c(
+    'GRP', 
+    'log2_age', 
+    'aBreastFeed_full_duration')))
+  
+outcomes <- outcomes %>% 
+  inner_join(tr, by = 'variable')
+
+## plot all outcomes
+plots <- pmap(outcomes, boxplot_cond)
+
+## matrix of plot
+plots_arranged <- ggarrange(plotlist = plots, ncol = 8, nrow = 5)
+plots_arranged
+
+```
+
+
+### Old children
+
+```{r, fig.height=12, fig.width=12, warning=FALSE}
+## data
+df <- dat_child_old
+
+df <- df %>% 
+  select(where(~is.numeric(.)  && length(unique(.)) >3) | GRP) 
+
+## defining outcomes of interest
+tr <- DatChar_child_old_df %>% 
+  filter(!is.na(q.value)) %>% 
+  select(variable, q.value)
+
+df <- df %>% 
+  select(where(~is.numeric(.)  && length(unique(.)) >3) | GRP) 
+
+## define outcomes of interest
+outcomes <- data.frame(
+  variable = setdiff(names(df), c(
+    'GRP', 
+    'log2_age', 
+    'aBreastFeed_full_duration')))
+  
+outcomes <- outcomes %>% 
+  inner_join(tr, by = 'variable')
+
+## plot all outcomes
+plots <- pmap(outcomes, boxplot_cond)
+
+## matrix of plot
+plots_arranged <- ggarrange(plotlist = plots, ncol = 8, nrow = 5)
+plots_arranged
+
+```
+
+### Adults
+
+```{r, fig.height=13, fig.width=11, warning=FALSE}
+## data
+df <- dat_adult
+
+df <- df %>% 
+  select(where(~is.numeric(.)  && length(unique(.)) >3) | GRP) %>% 
+  select(-aCros)
+
+## defining outcomes of interest
+tr <- DatChar_adult_df %>% 
+  filter(!is.na(q.value)) %>% 
+  select(variable, q.value)
+
+df <- df %>% 
+  select(where(~is.numeric(.)  && length(unique(.)) >3) | GRP) 
+
+## define outcomes of interest
+outcomes <- data.frame(
+  variable = setdiff(names(df), c(
+    'GRP', 
+    'log2_age')))
+
+outcomes <- outcomes %>% 
+  inner_join(tr, by = 'variable')
+
+## plot all outcomes
+plots <- pmap(outcomes, boxplot_cond)
+
+## matrix of plot
+plots_arranged <- ggarrange(plotlist = plots, ncol = 7, nrow = 6)
+plots_arranged
+
+```
+
+
+# Food intake summary 
+
+```{r}
+dat_food %>% summary()
+```
+
+## Summary tables
+
+### Children all
+
+```{r}
+food_int_child_all <- run(
+  dat_food %>%
+    filter(Age_category != 'Adult') %>% 
+    select(-Age_category) %>% 
+    tbl_summary(
+      by = 'GRP') %>%
+    modify_caption("Nutrients intake in children (all)") %>% 
+    add_p() %>% 
+    add_q(),
+  
+  path = 'gitignore/run/food_int_child_all', reuse = TRUE)
+
+
+food_int_child_all
+
+food_int_child_all_df <- food_int_child_all$table_body %>%
+  as_tibble()
+```
+
+### Children young
+
+```{r}
+food_int_child_young <- run(
+  dat_food %>%
+    filter(Age_category == 'Ch < 3 yrs') %>% 
+    select(-Age_category) %>% 
+    tbl_summary(
+      by = 'GRP') %>%
+    modify_caption("Nutrients intake in children < 3 years of age") %>% 
+    add_p() %>% 
+    add_q(),
+  
+  path = 'gitignore/run/food_int_child_young', reuse = TRUE)
+
+
+food_int_child_young
+
+food_int_child_young_df <- food_int_child_young$table_body %>%
+  as_tibble()
+```
+
+
+### Children old
+
+```{r}
+food_int_child_old <- run(
+  dat_food %>%
+    filter(Age_category == 'Ch > 3 yrs') %>% 
+    select(-Age_category) %>% 
+    tbl_summary(
+      by = 'GRP') %>%
+    modify_caption("Nutrients intake in children of 3+ years of age") %>% 
+    add_p() %>% 
+    add_q(),
+  
+  path = 'gitignore/run/food_int_child_old', reuse = TRUE)
+
+
+food_int_child_old
+
+food_int_child_old_df <- food_int_child_old$table_body %>%
+  as_tibble()
+```
+
+
+### Adults
+
+```{r}
+food_int_adult <- run(
+  dat_food %>%
+    filter(Age_category == 'Adult') %>% 
+    select(-Age_category) %>% 
+    tbl_summary(
+      by = 'GRP') %>%
+    modify_caption("Nutrients intake in adults") %>% 
+    add_p() %>% 
+    add_q(),
+  
+  path = 'gitignore/run/food_int_adult', reuse = TRUE)
+
+
+food_int_adult
+
+food_int_adult_df <- food_int_adult$table_body %>%
+  as_tibble()
+```
+
+## Plots of nutrient intake
+
+Preparation
+
+```{r, fig.height=12, fig.width=12, warning=FALSE}
+## define color
+colo <- c('#329243', '#ACE1A3', '#F9FFAF')
+
+## prepare data
+df <- dat_food %>% 
+  mutate(Age_category2 = recode(Age_category,
+                  `Ch > 3 yrs` = 'child_old',
+                  `Ch < 3 yrs` = 'child_young')) %>% 
+  
+  mutate(super_group = interaction(GRP, Age_category2)) %>% 
+  
+  mutate(super_group = fct_relevel(
+    super_group, 
+    'OM.child_young', 'VG.child_young', 'VN.child_young',
+    'OM.child_old', 'VG.child_old', 'VN.child_old',
+    'OM.adult', 'VG.adult', 'VN.adult')) %>% 
+  
+  mutate(GRP = fct_relevel(
+    GRP, 
+    'VN', 'VG', 'OM')) %>% 
+  
+  mutate(Age_category = fct_relevel(
+    Age_category, 
+    'Ch < 3 yrs', 'Ch > 3 yrs', 'adult'))
+    
+                              
+## define outcomes of interest
+
+outcomes <- data.frame(
+  variable = df %>% 
+    select(Calories.kcal.:Iodine.μg.) %>% 
+    colnames())
+
+outcomes <- outcomes %>% 
+  mutate(
+    title = str_extract(variable, "^[^.]+"),
+    y_title = str_extract(variable, "(?<=\\.).*") %>% 
+                     str_replace_all("\\.", "/day")
+  )
+
+outcomes$title[1] <- 'Energy'
+outcomes$title[7] <- 'Saturate fats'
+outcomes$y_title[7] <- 'g/day'
+```
+
+Boxplot
+
+```{r, fig.height=10, fig.width=13, warning=FALSE}
+## function to boxplot
+boxplot_cond <- function(variable, y_title, title) {
+  
+  clean_data <- df %>%
+    select(Age_category, GRP, super_group,  variable) %>%
+    drop_na()
+  
+  upper_limit <- max(clean_data[[variable]]) * 1.3
+  
+  p <- ggboxplot(clean_data, 
+                 x = 'GRP', 
+                 y = variable, 
+                 fill = 'GRP', 
+                 tip.length = 0.15,
+                 palette = colo,
+                 outlier.shape = 1,
+                 lwd = 0.25,
+                 outlier.size = 0.8,
+                 facet.by = 'Age_category',
+                 title = title,
+                 ylab = y_title) +
+    
+    theme(
+      plot.title = element_text(size = 10), 
+      axis.title = element_text(size = 8),  
+      axis.text = element_text(size = 7),
+      axis.title.x = element_blank()
+    ) +
+  
+    coord_cartesian(ylim = c(NA, upper_limit))
+
+  return(p)
+}
+
+# Plot all outcomes
+plots <- pmap(outcomes, boxplot_cond)
+
+# Create a matrix of plots
+plots_arranged <- ggarrange(plotlist = plots, ncol = 4, nrow = 4,  common.legend = TRUE)
+plots_arranged
+
+path <- paste0('gitignore/figures/plots_arranged.pdf')
+
+if(file.exists(path) == FALSE){
+  ggsave(path, 
+         plot = plots_arranged,
+         width = 13, height = 10,
+         device = cairo_pdf)
+}
+
+path <- paste0('gitignore/figures/plots_arranged.tiff')
+if(file.exists(path) == FALSE){
+  tiff(path, width = 13, height = 10, units = 'in', res = 400) 
+  grid.draw(plots_arranged)
+  dev.off()
+}
+
+```
+
+
+# Reproducibility
+
+```{r, collapse=TRUE}
+sessionInfo()
+```

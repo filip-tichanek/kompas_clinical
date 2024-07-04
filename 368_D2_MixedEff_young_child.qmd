@@ -1,0 +1,3457 @@
+---
+title: 'Clinical data, KOMPAS'
+subtitle: 'Statistical report - mixed-effects models in young children'
+format: 
+  html:  
+    embed-resources: true
+    keep-md: false
+    toc: true
+    toc-expand: 3
+    toc-depth: 5
+    toc-location: left
+    number-sections: true
+    number-depth: 4
+    code-fold: show
+    code-tools: true
+    code-summary: 'Open code'
+    grid: 
+      body-width: 1000px
+      sidebar-width: 600px
+      margin-width: 100px
+editor: source
+project:
+  type: default
+  output-dir: output
+theme: darkly
+highlight-style: github-dark
+fontsize: 12 px
+code-block-bg: '#2D2D31'
+fontcolor: '#C4C4C4'
+monobackgroundcolor: '#3B3B3B'
+bibliography: references.bib
+---
+
+------------------------------------------------------------------------
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(collapse = TRUE)
+```
+
+```{css, echo=FALSE}
+code.sourceCode {
+  font-size: 0.85em;
+  border: 1px solid #ffffff; /* White border */
+  padding: 20px; /* Add padding for better visibility */
+}
+
+code{
+    color: #EEE8AA; /* Change the color value as needed */
+}
+
+.equation {
+  text-align: center;
+  display: block;
+  margin: auto;
+}
+
+body {
+  text-align: justify;
+}
+
+```
+
+{{< include README.md >}}
+
+# Analysis
+
+## Import initiation file
+
+```{r}
+source('368_initiation.R')
+```
+
+
+## Linear models
+
+Young children models will be adjusted for the effect of `log2_age` (when applicable, i.e. not for age-adjusted Anthropometric data)), `SEX`, `aBreastFeed_full_stopped`, `aBreastFeed_total_stopped`, and `aBreastFeed_full_duration` (the interaction of the latter with duration of the dependence on the breastfeeding). Additional covariates (relevant supplementation for vitamins and biogenic elements levels) or birth weight (anthropometric data) were added as covariates.
+
+```{r}
+AIC_child_young <- data.frame(outcome = NA,
+                            estimand = 'mean',
+                            log2_age = NA,
+                            aSEX = NA,
+                            Breast_Feed = NA,
+                            other_cov = NA,
+                            diet = NA,
+                            family = NA)
+
+diet_child_young <- data.frame(outcome = NA,
+                         estimand = NA,
+                         VN_OM_diff = NA, 
+                         VN_OM_P = NA,
+                         VG_OM_diff = NA, 
+                         VG_OM_P = NA,
+                         VN_VG_diff = NA, 
+                         VN_VG_P = NA)
+
+i = 1
+j = 1
+ni= 10
+```
+
+
+### aMASS_Perc
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aBiW))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       exclude = c('log2_age'),
+       include = c('aBiW'), 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on age-standardized percentile of body mass, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(exclude = c('log2_age'),
+                    include = c('aBiW'),
+                 remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('log2_age', 'SEX'), 
+                 include = 'aBiW',
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('log2_age',
+                             'aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                include = 'aBiW',
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('log2_age', 'GRP'),
+                  include = 'aBiW',
+                  remove_random = TRUE)
+
+### model without birth weight
+mod_other_cov <- rlme(exclude = c('log2_age'),
+                      remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- NA
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+
+### aHEIGHT_Perc
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+column_name
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aBiW))
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  rlme(main = TRUE, exclude = c('log2_age'),
+                    include = c('aBiW'), 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(
+  res, 
+  caption = 'The effect of diet on age-standardized percentile of body height, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(exclude = c('log2_age'),
+                 include = c('aBiW'),
+                 remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('log2_age', 'SEX'), include = 'aBiW')
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('log2_age',
+                             'aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                include = 'aBiW',
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('log2_age', 'GRP'), 
+                  include = 'aBiW',
+                  remove_random = TRUE)
+
+### model without birth weight
+mod_other_cov <- rlme(exclude = c('log2_age'),
+                      remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- NA
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+
+### aBMI_PERC
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aBiW))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       exclude = c('log2_age'),
+       include = c('aBiW'), 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on age-standardized percentile of BMI, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(exclude = c('log2_age'),
+                    include = c('aBiW'),
+                 remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('log2_age', 'SEX'), 
+                 include = 'aBiW',
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('log2_age',
+                             'aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                include = 'aBiW',
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('log2_age', 'GRP'),
+                  include = 'aBiW',
+                  remove_random = TRUE)
+
+### model without birth weight
+mod_other_cov <- rlme(exclude = c('log2_age'),
+                      remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- NA
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aM_per_H_PERC
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aBiW))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       exclude = c('log2_age'),
+       include = c('aBiW'), 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on age-standardized percentile of percentile of weight to height ratio, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(exclude = c('log2_age'),
+                    include = c('aBiW'),
+                 remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('log2_age', 'SEX'), 
+                 include = 'aBiW',
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('log2_age',
+                             'aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                include = 'aBiW',
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('log2_age', 'GRP'),
+                  include = 'aBiW',
+                  remove_random = TRUE)
+
+### model without birth weight
+mod_other_cov <- rlme(exclude = c('log2_age'),
+                      remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- NA
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aGLY
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on glycemia, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aTC
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on total cholesterol, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aHDL
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on HDL cholesterol level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aLDL
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on LDL cholesterol level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aTG
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on TG cholesterol level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aCa
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+	!is.na(aSUP_Ca))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, include = c('aSUP_Ca'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum Ca level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_Ca'),remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(include = c('aSUP_Ca'),exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(include = c('aSUP_Ca'),
+		exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('aSUP_Ca'),
+		              exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		                 include = c('aSUP_Ca'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aP
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum P level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aMg 
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum Mg level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(
+		exclude = c('aBreastFeed_full_stopped',
+                'aBreastFeed_total_stopped',
+                'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(
+		 exclude = c('GRP'),
+		 remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+                     remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aSe
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Se))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, include = c('aSUP_Se'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum Se level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_Se'),remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(include = c('aSUP_Se'),exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(include = c('aSUP_Se'),
+		exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('aSUP_Se'),
+		 exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		  include = c('aSUP_Se'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aZn
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Zn))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, include = c('aSUP_Zn'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum Zn level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_Zn'),remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(include = c('aSUP_Zn'),exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(include = c('aSUP_Zn'),
+		exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('aSUP_Zn'),
+		 exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		  include = c('aSUP_Zn'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aFE
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, include = c('aSUP_Fe'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum Fe level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_Fe'),remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(include = c('aSUP_Fe'),exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(include = c('aSUP_Fe'),
+		exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('aSUP_Fe'),
+		 exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		  include = c('aSUP_Fe'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aVKFE
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, include = c('aSUP_Fe'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum ferritin Fe binding capacity, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_Fe'),remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(include = c('aSUP_Fe'),exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(include = c('aSUP_Fe'),
+		exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('aSUP_Fe'),
+		 exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		  include = c('aSUP_Fe'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aFERR
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0('log2_', column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, include = c('aSUP_Fe'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log(serum ferritin level), estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_Fe'),remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(include = c('aSUP_Fe'),exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(include = c('aSUP_Fe'),
+		exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('aSUP_Fe'),
+		 exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		  include = c('aSUP_Fe'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aTRF
+
+Data selection 
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, include = c('aSUP_Fe'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on serum tranferin level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_Fe'),remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(include = c('aSUP_Fe'),exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(include = c('aSUP_Fe'),
+		exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('aSUP_Fe'),
+		 exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		  include = c('aSUP_Fe'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aSATTRF
+
+Data selection 
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, include = c('aSUP_Fe'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on tranferin saturation, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_Fe'),remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(include = c('aSUP_Fe'),exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(include = c('aSUP_Fe'),
+		exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('aSUP_Fe'),
+		 exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		  include = c('aSUP_Fe'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aTRFINDEX
+
+Data selection 
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome) 
+column_name <- paste0('log2_', column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, include = c('aSUP_Fe'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on sTfR index (log2-ratio), estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_Fe'),remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(include = c('aSUP_Fe'),exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(include = c('aSUP_Fe'),
+		exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('aSUP_Fe'),
+		 exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		  include = c('aSUP_Fe'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aSTRF
+
+Data selection 
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome) 
+column_name <- paste0('log2_', column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, include = c('aSUP_Fe'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(soluble transferin receptor level), estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_Fe'),remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(include = c('aSUP_Fe'),exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(include = c('aSUP_Fe'),
+		exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('aSUP_Fe'),
+		 exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		  include = c('aSUP_Fe'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aHGB
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on hemoglobin level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aMCV
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on mean corpuscular volume, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aPTH
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on parathormone level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aCros
+
+Data selection 
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Ca),
+         !is.na(aSUP_D))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome) 
+column_name <- paste0('log2_', column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE,  include = c('aSUP_Ca', 'aSUP_D'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(beta cross laps), estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_Ca', 'aSUP_D'),remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme( include = c('aSUP_Ca', 'aSUP_D'),exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme( include = c('aSUP_Ca', 'aSUP_D'),
+		exclude = c('aBreastFeed_full_stopped',
+		            'aBreastFeed_total_stopped',
+		            'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(
+  include = c('aSUP_Ca', 'aSUP_D'),
+  exclude = c('GRP'),
+  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		  include = c('aSUP_Ca', 'aSUP_D'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aP1NP
+
+Data selection 
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Ca),
+         !is.na(aSUP_D))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE,  include = c('aSUP_Ca', 'aSUP_D'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on procollagen type I level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_Ca', 'aSUP_D'),remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme( include = c('aSUP_Ca', 'aSUP_D'),exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme( include = c('aSUP_Ca', 'aSUP_D'),
+		exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('aSUP_Ca', 'aSUP_D'),
+		 exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		  include = c('aSUP_Ca', 'aSUP_D'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aUI
+
+Data selection 
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE,  
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on urinary iodine level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(
+		exclude = c('aBreastFeed_full_stopped',
+                'aBreastFeed_total_stopped',
+                'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(
+  exclude = c('GRP'),
+  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+                     remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aUREA
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name),
+         log2_age_2 = log2_age**2) %>% 
+  filter(!is.na(outcome))  
+
+column_name  
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, include = c('log2_age_2'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on urea level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('log2_age_2'),
+                 remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(include = c('log2_age_2'),
+                 exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(include = c('log2_age_2'),
+		exclude = c('aBreastFeed_full_stopped',
+		            'aBreastFeed_total_stopped',
+		            'aBreastFeed_full_duration'),
+		remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(
+  include = c('log2_age_2'),
+  exclude = c('GRP'),
+  remove_random = TRUE)
+
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+                     remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aCREA
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome) 
+column_name <- paste0('log2_', column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(creatinine) level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+                     remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aUA
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on uric acid level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aVIT_AKTB12
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name),
+         log2_age_2 = log2_age**2) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSup_B12)) 
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome) 
+column_name <- paste0('log2_', column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       include = c('log2_age_2', 'aSup_B12'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(vitamin B12) serum level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('log2_age_2', 'aSup_B12'),
+                 remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme( include = c('log2_age_2', 'aSup_B12'),
+                  exclude = c('SEX'),
+                  remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme( include = c('log2_age_2', 'aSup_B12'),
+		exclude = c('aBreastFeed_full_stopped',
+		            'aBreastFeed_total_stopped',
+		            'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('log2_age_2', 'aSup_B12'),
+		 exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov - log2_age_2 and supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		  include = c('log2_age_2', 'aSup_B12'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aHCY
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome) 
+column_name <- paste0('log2_', column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(homocysteine) level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aMMA
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome) 
+column_name <- paste0('log2_', column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(methylmalonic acid) level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+                     remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aVIT_D
+
+Data selection 
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_D))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome) 
+column_name <- paste0('log2_', column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       include = c('aSUP_D'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(vitamin D) serum level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_D'),
+                 remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(include = c('aSUP_D'),
+                 exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(include = c('aSUP_D'),
+		exclude = c('aBreastFeed_full_stopped',
+		            'aBreastFeed_total_stopped',
+		            'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('aSUP_D'),
+		 exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(
+  exclude = c("log2_age"),
+  include = c('aSUP_D'),
+  remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aFOLAT
+
+Data selection 
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_FOL))
+
+column_name
+
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, include = c('aSUP_FOL'),
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on folate serum level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(include = c('aSUP_FOL'),remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(include = c('aSUP_FOL'),exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(include = c('aSUP_FOL'),
+		exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(include = c('aSUP_FOL'),
+		 exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without supplementation
+mod_other_cov <- rlme(remove_random = TRUE)
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),
+		  include = c('aSUP_FOL'),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+
+i = i+1
+```
+
+### aIGF1
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_child_young)[i+ni]
+
+dat_mod <- dat_child_young %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+Fit main model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome) 
+column_name <- paste0('log2_', column_name)
+
+## main model 
+mod_main <- run(
+  
+  rlme(main = TRUE, 
+       remove_random = TRUE),
+  
+  path = paste0('gitignore/run/mod_child_young_', column_name, '_main_mixef'),
+  reuse = TRUE)
+
+summary(mod_main)[['coefficients']]
+icc(mod_main)
+
+res <- emm(mod_main)
+
+suppl_table <- kbl(res, caption = 
+      'The effect of diet on log2(growth factor) level, estimated with a robust linear model in children < 3 years. CI_L and CI_U are bounds of 95% confidence interval') %>% 
+  kable_styling('striped',full_width = T) %>% 
+  column_spec(1, width_min = '1in')
+
+suppl_table
+```
+
+Leave-one-factor models
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### main model but non-robust
+mod_main <- rlme(remove_random = TRUE)
+
+### model  without random effect
+mod_nonran <- NA
+
+### model without sex
+mod_nsex <- rlme(exclude = c('SEX'),
+                 remove_random = TRUE)
+
+### model without breastfeeding-related predictors
+mod_nbf <- rlme(exclude = c('aBreastFeed_full_stopped',
+                             'aBreastFeed_total_stopped',
+                             'aBreastFeed_full_duration'),  
+                remove_random = TRUE)
+
+### model without diet groups
+mod_ndiet <- rlme(exclude = c('GRP'),
+                  remove_random = TRUE)
+
+### model without other cov.
+mod_other_cov <- NA
+
+### model without log2_age
+mod_log2_age <- rlme(exclude = c("log2_age"),remove_random = TRUE)
+
+```
+
+Putting key results together
+
+```{r}
+
+## AIC
+
+AIC_child_young <- add_AIC(AIC_child_young, mixef = TRUE)
+
+diet_child_young <- add_eff(diet_child_young, res, mixef = TRUE)
+```
+
+
+## Saving tables
+
+
+```{r}
+
+## Between-diets differences
+
+if(file.exists('gitignore/data/diet_child_young_mixeff.xlsx') == FALSE){
+  diet_child_young <- diet_child_young[-1,]
+  
+  diet_child_young$VN_OM_P_adj <- NA
+  diet_child_young$VG_OM_P_adj <- NA
+  diet_child_young$VN_VG_P_adj <- NA
+  
+for (i in seq(1, nrow(diet_child_young))) {
+  padj <- p.adjust(c(
+    diet_child_young$VN_OM_P[i], 
+    diet_child_young$VG_OM_P[i],
+    diet_child_young$VN_VG_P[i]), 
+    method = 'hochberg')
+  
+  diet_child_young$VN_OM_P_adj[i] <- padj[1]
+  diet_child_young$VG_OM_P_adj[i] <- padj[2]
+  diet_child_young$VN_VG_P_adj[i] <- padj[3]
+}
+  
+  diet_child_young <- diet_child_young %>%
+    
+    select(outcome, estimand, 
+         VN_OM_diff, VN_OM_P, VN_OM_P_adj,
+         VG_OM_diff, VG_OM_P, VG_OM_P_adj,
+         VN_VG_diff, VN_VG_P, VN_VG_P_adj) %>%
+    
+    mutate(across(.cols = 3:11, .fns = ~as.numeric(as.character(.)))) %>% 
+    mutate(across(.cols = c(VN_OM_P, VG_OM_P, VN_VG_P,
+                            VN_OM_P_adj, VG_OM_P_adj, VN_VG_P_adj), ~ round(.x, 5)))
+
+  write.xlsx(diet_child_young, 'gitignore/data/diet_child_young_mixeff.xlsx')
+}
+
+## Importance of predictors
+
+if(file.exists('gitignore/data/AIC_child_young_mixeff.xlsx') == FALSE){
+  AIC_child_young <- AIC_child_young[-1,]
+  write.xlsx(AIC_child_young, 'gitignore/data/AIC_child_young_mixeff.xlsx')
+  }
+```
+
+
+# Reproducibility
+
+```{r, collapse=TRUE}
+sessionInfo()
+```

@@ -1,0 +1,5023 @@
+---
+title: "Dietary intake, Nutritional status, and Health outcomes among Vegan, Vegetarian and Omnivore families: results from the observational study"
+subtitle: "Statistical report - quantile regression in adults"
+format: 
+  html:  
+    embed-resources: true
+    keep-md: false
+    toc: true
+    toc-expand: 3
+    toc-depth: 5
+    toc-location: left
+    number-sections: true
+    number-depth: 4
+    code-fold: show
+    code-tools: true
+    code-summary: "Open code"
+    grid: 
+      body-width: 1000px
+      sidebar-width: 600px
+      margin-width: 100px
+editor: source
+project:
+  type: default
+  output-dir: output
+theme: darkly
+highlight-style: github-dark
+fontsize: 12 px
+code-block-bg: "#2D2D31"
+fontcolor: "#C4C4C4"
+monobackgroundcolor: "#3B3B3B"
+bibliography: references.bib
+---
+
+------------------------------------------------------------------------
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(collapse = TRUE)
+```
+
+```{css, echo=FALSE}
+code.sourceCode {
+  font-size: 0.85em;
+  border: 1px solid #ffffff; /* White border */
+  padding: 20px; /* Add padding for better visibility */
+}
+
+code{
+    color: #EEE8AA; /* Change the color value as needed */
+}
+
+.equation {
+  text-align: center;
+  display: block;
+  margin: auto;
+}
+
+body {
+  text-align: justify;
+}
+
+```
+
+------------------------------------------------------------------------
+
+{{< include README.md >}}
+
+# Analysis
+
+## Import initiation file
+
+```{r}
+source('368_initiation.R')
+```
+
+
+## Quantile regression
+
+Define number of bootstrap simulations per model
+
+```{r}
+nsim = 21000
+quantils = c(0.2, 0.5, 0.8)
+```
+
+Adults models will be adjusted for the effect of `aAGE`, `SEX`. Relevant supplementation for vitamins and biogenic elements will be added as covariates.
+
+```{r}
+AIC_adult <- data.frame(outcome = NA,
+                        estimand = NA,
+                        aAGE = NA,
+                        aSEX = NA,
+                        other_cov = NA,
+                        diet = NA)
+
+diet_adult <- data.frame(outcome = NA,
+                         estimand = NA,
+                         VN_OM_diff = NA, 
+                         VN_OM_P = NA,
+                         VG_OM_diff = NA, 
+                         VG_OM_P = NA,
+                         VN_VG_diff = NA, 
+                         VN_VG_P = NA)
+
+i <-  1
+j <-  1
+ni <-  5
+```
+
+### aBMI
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Again with log2-transformed outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+No large difference
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim, jitter = TRUE),
+  path = 'gitignore/run/mod_adult_aBMI_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_109 <- kbl(res, caption = 
+                        "Suppl. Table 109. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of BMI. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_109
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aWHR
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim, jitter = TRUE),
+  path = 'gitignore/run/mod_adult_aWHR_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_110 <- kbl(res, caption = 
+                        "Suppl. Table 110. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of waist-to-hip ratio. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_110
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aHEIGHT
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim, jitter = TRUE),
+  path = 'gitignore/run/mod_adult_aHEIGHT_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_111 <- kbl(res, caption = 
+                        "Suppl. Table 111. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of body height. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_111
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aMASS
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Again with log2-transformed outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+No large difference. We will keep original values for the sake of simple interpretability
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim, jitter = TRUE),
+  path = 'gitignore/run/mod_adult_aMASS_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_112 <- kbl(res, caption = 
+                        "Suppl. Table 112. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of body mass. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_112
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aHG
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim, jitter = TRUE),
+  path = 'gitignore/run/mod_adult_aHG_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_113 <- kbl(res, caption = 
+                        "Suppl. Table 113. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of hand grip. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_113
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aPFAT
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+With log2-transformed outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE, warning=FALSE, message=FALSE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim, jitter = TRUE),
+  path = 'gitignore/run/mod_adult_aPFAT_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1, nround=3)
+res_tab_q50 <- exte(mod_boot, nquantile = 2,nround=3)
+res_tab_q80 <- exte(mod_boot, nquantile = 3, nround=3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_114 <- kbl(res, caption = 
+                        "Suppl. Table 114. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of percentile of body fat. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_114
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aFAT
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+With log2-transformed outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Looks much better after log2-transformation of the outcome variable
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome) 
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim, jitter = TRUE),
+  path = 'gitignore/run/mod_adult_aFAT_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1, nround=5)
+res_tab_q50 <- exte(mod_boot, nquantile = 2, nround=5)
+res_tab_q80 <- exte(mod_boot, nquantile = 3, nround=5)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_115 <- kbl(res, caption = 
+                        "Suppl. Table 115. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(body fat). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_115
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aFFM
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Again with log2-transformed outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Looks much better with log-2transformed outcome variable
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome) 
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim, jitter = TRUE),
+  path = 'gitignore/run/mod_adult_aFFM_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1, nround=3)
+res_tab_q50 <- exte(mod_boot, nquantile = 2, nround=3)
+res_tab_q80 <- exte(mod_boot, nquantile = 3, nround=3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_116 <- kbl(res, caption = 
+                        "Suppl. Table 116. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(free fat mass) . CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_116
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aSBP
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+plot(gamm, select = 1)
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim, jitter = TRUE),
+  path = 'gitignore/run/mod_adult_aSBP_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_117 <- kbl(res, caption = 
+                        "Suppl. Table 117. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of systolic blood pressure. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_117
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aDBP
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aDBP_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_118 <- kbl(res, caption = 
+                        "Suppl. Table 118. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of diastolic blood pressure. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_118
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aGLY
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Again with log2-transformation of the outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Log2 transformation did not improve the fit
+
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aGLY_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_119 <- kbl(res, caption = 
+                        "Suppl. Table 119. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of glycemia. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_119
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aTC
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Again with log2-transformed outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aTC_Perc_boot', reuse = TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_120 <- kbl(res, caption = 
+                        "Suppl. Table 120. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile log2(total cholesterol). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_120
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aHDL
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aHDL_Perc_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_121 <- kbl(res, caption = 
+                        "Suppl. Table 121. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of HDL cholesterol level. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_121
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aLDL
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aLDL_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_122 <- kbl(res, caption = 
+                        "Suppl. Table 122. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of LDL cholesterol level. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_122
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aTG
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+log2 outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aTG_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_123 <- kbl(res, caption = 
+                        "Suppl. Table 123. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(TG cholesterol) level. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_123
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aCa
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Ca)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_Ca + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_Ca"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aCa_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_124 <- kbl(res, caption = 
+                        "Suppl. Table 124. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of serum Ca level. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_124
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include= c("aSUP_Ca"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include= c("aSUP_Ca"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include= c("aSUP_Ca"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aP
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aP_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_125 <- kbl(res, caption = 
+                        "Suppl. Table 125. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of serum P level. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_125
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aMg
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Mg)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_Mg + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_Mg"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aMg_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_126 <- kbl(res, caption = 
+                        "Suppl. Table 126. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of serum Mg level. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_126
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include= c("aSUP_Mg"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include= c("aSUP_Mg"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                  include= c("aSUP_Mg"),
+                  exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aSe
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Se)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSUP_Se + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_Se"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aSe_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_127 <- kbl(res, caption = 
+                        "Suppl. Table 127. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of serum Se level. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_127
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include= c("aSUP_Se"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include= c("aSUP_Se"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include= c("aSUP_Se"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aZn
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Zn)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_Zn + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+log2 outcome - better
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSUP_Zn + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_Zn"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aZn_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_128 <- kbl(res, caption = 
+                        "Suppl. Table 128. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(serum Zn level). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_128
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include= c("aSUP_Zn"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include= c("aSUP_Zn"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include= c("aSUP_Zn"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aFE
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+log2 outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Log2-transformation did not improve it
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_Fe"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aFe_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_129 <- kbl(res, caption = 
+                        "Suppl. Table 129. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of serum Fe level. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_129
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include= c("aSUP_Fe"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include= c("aSUP_Fe"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include= c("aSUP_Fe"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aVKFE
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+log2 outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Slightly better
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_Fe"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aVKFE_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_130 <- kbl(res, caption = 
+                        "Suppl. Table 130. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(serum ferritin Fe binding capacity). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_130
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include= c("aSUP_Fe"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include= c("aSUP_Fe"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include= c("aSUP_Fe"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+```
+
+### aFERR
+
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+log2 outcome - better
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Much better after outcome transformation
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE, warning=FALSE, message=FALSE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_Fe"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aFERR_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_131 <- kbl(res, caption = 
+                        "Suppl. Table 131. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(serum ferritin level). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_131
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include= c("aSUP_Fe"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include= c("aSUP_Fe"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include= c("aSUP_Fe"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aTRF
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+log2 outcome - better
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Much better after the outcome transformation
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_Fe"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aTRF_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_132 <- kbl(res, caption = 
+                        "Suppl. Table 132. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(serum transferin level). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_132
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include= c("aSUP_Fe"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include= c("aSUP_Fe"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include= c("aSUP_Fe"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aSATTRF
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+log2 outcome - not better
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+The outcome transformation did not help
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_Fe"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aSATTRF_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_133 <- kbl(res, caption = 
+                        "Suppl. Table 133. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of transferin saturation. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_133
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include= c("aSUP_Fe"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include= c("aSUP_Fe"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include= c("aSUP_Fe"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aTRFINDEX
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+log2 outcome - better
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_Fe"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aTRFINDEX_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_134 <- kbl(res, caption = 
+                        "Suppl. Table 134. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of sTfR index (log2-ratio). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_134
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', 
+                  include= c("aSUP_Fe"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   include= c("aSUP_Fe"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                  include= c("aSUP_Fe"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aSTRF
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Fe)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+log2 outcome - not better -VYMAZAT OUTLIER?
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSUP_Fe + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+May be slightly better
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_Fe"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aSTRF_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_135 <- kbl(res, caption = 
+                        "Suppl. Table 135. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(soluble transferin receptor level). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_135
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include= c("aSUP_Fe"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include= c("aSUP_Fe"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include= c("aSUP_Fe"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aHGB
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aHGB_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_136 <- kbl(res, caption = 
+                        "Suppl. Table 136. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of hemoglobin level. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_136
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aMCV
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aMCV_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_137 <- kbl(res, caption = 
+                        "Suppl. Table 137. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of mean corpuscular volume. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_137
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aPTH
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+log2 outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+No substantially better
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+# dat_mod$outcome <- log2(dat_mod$outcome)
+# column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aPTH_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_138 <- kbl(res, caption = 
+                        "Suppl. Table 138. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of parathormone level. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_138
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aCros
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Ca), 
+         !is.na(aSUP_D)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_Ca + 
+    aSUP_D +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+log2 outcome - better
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSUP_Ca + 
+    aSUP_D +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_Ca", "aSUP_D"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aCros_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_139 <- kbl(res, caption = 
+                        "Suppl. Table 139. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(beta cross laps). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_139
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include=c("aSUP_Ca", "aSUP_D"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include=c("aSUP_Ca", "aSUP_D"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include=c("aSUP_Ca", "aSUP_D"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aP1NP
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_Ca), 
+         !is.na(aSUP_D)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_Ca + 
+    aSUP_D +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+log2 outcome - better
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSUP_Ca + 
+    aSUP_D +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_Ca", "aSUP_D"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aP1NP_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_140 <- kbl(res, caption = 
+                        "Suppl. Table 140. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(procollagen type I level). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_140
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include=c("aSUP_Ca", "aSUP_D"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include=c("aSUP_Ca", "aSUP_D"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include=c("aSUP_Ca", "aSUP_D"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aUI
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Again but with log2-transformed outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Log-transformation did not improve the fit substantially. Even though it is not perfect we will continue to work with original values.
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aUI_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_141 <- kbl(res, caption = 
+                        "Suppl. Table 141. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(urinary iodine level). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_141
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                  exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aUREA
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Again but with log2-transformed outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Log-transformation improved the fit. We will continue to work with log-transformed values.
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aUREA_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_142 <- kbl(res, caption = 
+                        "Suppl. Table 142. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(urea level). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_142
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aCREA
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Again but with log2-transformed outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Log-transformation improved the fit. We will continue to work with log-transformed values.
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aCREA_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_143 <- kbl(res, caption = 
+                        "Suppl. Table 143. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(creatinine level). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_143
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aUA
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aUA_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_144 <- kbl(res, caption = 
+                        "Suppl. Table 144. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of uric acid level. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_144
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aVIT_AKTB12
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSup_B12)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSup_B12 + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Again but with log2-transformed outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSup_B12 + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Log-transformation improved the fit. We will continue to work with log-transformed values.
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSup_B12"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aVIT_AKTB12_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_145 <- kbl(res, caption = 
+                        "Suppl. Table 145. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(vitamin B12 level). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_145
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include= c("aSup_B12"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include= c("aSup_B12"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include= c("aSup_B12"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aHCY
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+log2 outcome - not better
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Log-transformation slightly improved the fit. As log2 transformation was used in children category, ee will continue to work with log-transformed values.
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aHCY_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_146 <- kbl(res, caption = 
+                        "Suppl. Table 146. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(homocysteine). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_146
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aMMA
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome))
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Try log2-transformation
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Much better now
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## Log-transformation of the outcome
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult')
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aMMA_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_147 <- kbl(res, caption = 
+                        "Suppl. Table 147. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of methylmalonic acid level. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_147
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult',
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- NA
+
+### model without age
+mod_age <-  rqfit(type = 'adult',
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aVIT_D
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_D)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_D + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Again but with log2-transformed outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSUP_D + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Log-transformation improved the fit. We will continue to work with log-transformed values.
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+
+dat_mod$outcome <- log2(dat_mod$outcome)
+column_name <- paste0("log2_", column_name)
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_D"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aVIT_D_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_148 <- kbl(res, caption = 
+                        "Suppl. Table 148. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of log2(vitamin D level). CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_148
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include= c("aSUP_D"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include= c("aSUP_D"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include= c("aSUP_D"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+### aFOLAT
+
+Data selection
+
+```{r, fig.height=7, fig.width=7, collapse=TRUE}
+
+## data selection
+column_name <- names(dat_adult)[i+ni]
+
+#AIC_adult$outcome[i] <- column_name
+
+dat_mod <- dat_adult %>%
+  mutate(outcome = !!sym(column_name)) %>% 
+  filter(!is.na(outcome),
+         !is.na(aSUP_FOL)) 
+
+column_name
+```
+
+GAMM
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  outcome ~ 
+    SEX + 
+    GRP +
+    aSUP_FOL + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Again but with log2-transformed outcome
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+gamm <- gam(
+  log2(outcome) ~ 
+    SEX + 
+    GRP +
+    aSUP_FOL + 
+    s(aAGE) +
+    s(FAM, bs="re"), 
+  data = dat_mod)
+
+summary(gamm)
+anova(gamm)
+
+plot(gamm, select = 1)
+
+### Model check
+pltmd(gamm)
+```
+
+Log-transformation did not improve the fit substantially. We will continue to work with original values.
+
+Quantile model
+
+```{r, fig.height=5, fig.width=5, collapse=TRUE}
+
+## main model 
+mod_main <- rqfit(type = 'adult', include=c("aSUP_FOL"))
+
+## bootstrapping of main model
+mod_boot <- run(
+  clust_boot(mod_main, seed= 16, R = nsim),
+  path = 'gitignore/run/mod_adult_aFOLAT_boot', reuse=TRUE)
+
+## extract sampled coefficients and create resulting table
+res_tab_q20 <- exte(mod_boot, nquantile = 1)
+res_tab_q50 <- exte(mod_boot, nquantile = 2)
+res_tab_q80 <- exte(mod_boot, nquantile = 3)
+
+## combining the results into a single table
+res <- cbind(res_tab_q20,res_tab_q50, res_tab_q80)
+
+suppl_table_149 <- kbl(res, caption = 
+                        "Suppl. Table 149. Results of quantile regression, modelling (A) 20th quantile, (B) median and (C) 80th quantile of folate serum level. CI_L and CI_U are bounds of 95% confidence interval. Estimates are based on bootstrap (21000 simulations)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 1, "(A) 20th quantile" = 4, 
+                     "(B) Median" = 4, "(C) 80th quantile" = 4)) %>% 
+  column_spec(1, width_min = '1.5in')
+
+
+suppl_table_149
+```
+
+Leave-one-factor lqm
+
+```{r, fig.height=6, fig.width=6, warning=FALSE}
+
+### model without sex
+mod_nsex <- rqfit(type = 'adult', include= c("aSUP_FOL"),
+                  exclude = c("SEX"))
+
+### model without diet groups
+mod_ndiet <- rqfit(type = 'adult',include= c("aSUP_FOL"),
+                   exclude = c("GRP"))
+
+### model without other
+mod_other_cov <- rqfit(type = 'adult')
+
+### model without age
+mod_age <-  rqfit(type = 'adult',include= c("aSUP_FOL"),
+                   exclude = c("aAGE"))
+
+```
+
+Putting key results together
+
+```{r}
+AIC_adult <- add_AIC_adult(AIC_adult)
+
+diet_adult <- add_eff(diet_adult, res)
+
+i = i+1
+```
+
+
+### Saving tables
+
+```{r}
+
+## Between-diets differences
+
+if(file.exists('gitignore/data/diet_adult.xlsx') == FALSE){
+  diet_adult <- diet_adult[-1,]
+  
+  diet_adult$VN_OM_P_adj <- NA
+  diet_adult$VG_OM_P_adj <- NA
+  diet_adult$VN_VG_P_adj <- NA
+  
+for (i in seq(1, nrow(diet_adult), by = 3)) {
+  padj <- p.adjust(c(
+    diet_adult$VN_OM_P[i], 
+    diet_adult$VN_OM_P[i+1],
+    diet_adult$VN_OM_P[i+2],
+    
+    diet_adult$VG_OM_P[i],
+    diet_adult$VG_OM_P[i+1],
+    diet_adult$VG_OM_P[i+2],
+    
+    diet_adult$VN_VG_P[i],
+    diet_adult$VN_VG_P[i+1],
+    diet_adult$VN_VG_P[i+2]), method = 'hochberg')
+  
+  diet_adult$VN_OM_P_adj[i:(i+2)] <- padj[1:3]
+  diet_adult$VG_OM_P_adj[i:(i+2)] <- padj[4:6]
+  diet_adult$VN_VG_P_adj[i:(i+2)] <- padj[7:9]
+}
+  
+  
+  diet_adult <- diet_adult %>%
+    
+    select(outcome, estimand, 
+         VN_OM_diff, VN_OM_P, VN_OM_P_adj,
+         VG_OM_diff, VG_OM_P, VG_OM_P_adj,
+         VN_VG_diff, VN_VG_P, VN_VG_P_adj) %>%
+    
+    mutate(across(.cols = 3:11, .fns = ~as.numeric(as.character(.)))) %>% 
+    mutate(across(.cols = c(VN_OM_P, VG_OM_P, VN_VG_P,
+                            VN_OM_P_adj, VG_OM_P_adj, VN_VG_P_adj), ~ round(.x, 5)))
+
+  write.xlsx(diet_adult, 'gitignore/data/diet_adult.xlsx')
+}
+
+## Importance of predictors
+
+if(file.exists('gitignore/data/AIC_adult.xlsx') == FALSE){
+  AIC_adult <- AIC_adult[-1,]
+  write.xlsx(AIC_adult, 'gitignore/data/AIC_adult.xlsx')
+  }
+```
+
+# Reproducibility
+
+```{r, collapse=TRUE}
+sessionInfo()
+```

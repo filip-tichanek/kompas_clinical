@@ -1,0 +1,1615 @@
+---
+title: "Dietary intake, Nutritional status, and Health outcomes among Vegan, Vegetarian and Omnivore families: results from the observational study"
+subtitle: "Statistical report - mixed models summary"
+format: 
+  html:  
+    embed-resources: true
+    keep-md: false
+    toc: true
+    toc-expand: 3
+    toc-depth: 5
+    toc-location: left
+    number-sections: true
+    number-depth: 4
+    code-fold: show
+    code-tools: true
+    code-summary: "Open code"
+    grid: 
+      body-width: 1000px
+      sidebar-width: 600px
+      margin-width: 100px
+project:
+  type: default
+  output-dir: output
+editor: source
+theme: darkly
+highlight-style: github-dark
+fontsize: 12 px
+code-block-bg: "#2D2D31"
+fontcolor: "#C4C4C4"
+monobackgroundcolor: "#3B3B3B"
+bibliography: references.bib
+---
+
+------------------------------------------------------------------------
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(collapse = TRUE)
+```
+
+```{css, echo=FALSE}
+code.sourceCode {
+  font-size: 0.85em;
+  border: 1px solid #ffffff; /* White border */
+  padding: 20px; /* Add padding for better visibility */
+}
+
+code{
+    color: #EEE8AA; /* Change the color value as needed */
+}
+
+.equation {
+  text-align: center;
+  display: block;
+  margin: auto;
+}
+
+body {
+  text-align: justify;
+}
+
+```
+
+{{< include README.md >}}
+
+# Import initiation file
+
+```{r}
+source('368_initiation.R')
+```
+
+
+# All children
+
+## Diet effects
+
+### Unstandardized effects
+
+```{r}
+diet_child_all <- read.xlsx("gitignore/data/diet_child_all_mixeff.xlsx") %>% 
+  mutate(outcome = clean_outcome_names(outcome)) %>%
+  mutate(outcome = case_when(
+    outcome == 'FOLAT' ~ 'FOLATE',
+    outcome == 'VKFE' ~ 'TIBC',
+    outcome == 'Cros' ~ 'CTX',
+    outcome == 'log2_Cros' ~ 'log2_CTX',
+    outcome == 'VIT_AKTB12' ~ 'HOLOTC',
+    outcome == 'log2_VIT_AKTB12' ~ 'log2_HOLOTC',
+    TRUE ~ outcome
+  ))
+
+diet_child_all2 <- diet_child_all %>%   
+  mutate(across(.cols = c(VN_OM_diff, VG_OM_diff, VN_VG_diff), ~ round(.x, 2)))
+
+
+kbl(diet_child_all2, caption = 
+      "Differences between diet groups across outcomes in all children, based on mixed models") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 2, "(A) VN vs OM" = 3, 
+                     "(B) VG vs OM" = 3, "(C) VN vs VG" =3)) %>% 
+  column_spec(1, width_min = '1.5in') 
+```
+
+### Standardized effects by 1SD
+
+```{r}
+ids <- 11:46
+inde <- min(ids)-1
+ids <- ids-inde
+
+sds <- vector("double", max(ids))
+
+for(i in seq_along(ids)){
+  sds[i] <- ifelse(grepl("log2", diet_child_all[(i), 1]),
+                   sd(log2(dat_child_all[,(i+inde)]), na.rm = TRUE),
+                   sd(dat_child_all[,(i+inde)], na.rm = TRUE))
+}
+
+
+diet_child_all_Z <- diet_child_all %>% 
+  mutate(SD = sds) %>% 
+  mutate(
+    VN_OM_diff = VN_OM_diff/SD,
+    VG_OM_diff = VG_OM_diff/SD,
+    VN_VG_diff = VN_VG_diff/SD) %>% 
+  select(-c(SD)) %>% 
+  mutate(across(.cols = c(VG_OM_diff, VN_OM_diff, VN_VG_diff), ~ round(.x, 2)))
+
+
+kbl(diet_child_all_Z, caption = 
+      "Standardized differences between diet groups across outcomes in all children, based on mixed models") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 2, "(A) VN vs OM" = 3, 
+                     "(B) VG vs OM" = 3, "(C) VN vs VG" =3)) %>% 
+  column_spec(1, width_min = '1.5in') 
+```
+
+## Vulcano plots
+
+### VN vs OM
+
+```{r}
+#| fig.cap: 'Figure 19. Vulcano plot showing standardized differences between VN and OM across clinical outcomes in all children, based on mixed-effects models'
+
+
+color_map <- c('OM+' = '#C97F00', 
+               'VN+' = '#137000', 
+               'VG+' = '#103CC9',
+               'P>0.05' = 'grey50')
+
+plotac <- 'fig19'
+
+path = paste0('gitignore/figures/',plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  assign(plotac, diet_child_all_Z %>% 
+           filter(estimand != 'log(OR)') %>% 
+           mutate(int = interaction(outcome, estimand)) %>%
+           
+           mutate(
+             pv_adj = VN_OM_P_adj,
+             pv_raw = VN_OM_P,
+             b_coe = VN_OM_diff) %>% 
+           
+           mutate(pv_raw = if_else(pv_raw < 1e-5, 1e-5, pv_raw)) %>% 
+           
+           mutate(
+             m_ylab = -log10(pv_raw),
+             m_xlab = b_coe,
+             rescat = if_else(
+               pv_raw >= 0.05, 
+               'P>0.05', 
+               if_else(
+                 b_coe > 0, 
+                 'VN+', 
+                 'OM+'))) %>%
+           
+           mutate(
+             rescat = factor(rescat, 
+                             levels = c('OM+', 'VN+', 'P>0.05')),
+             meta_labels = if_else(pv_raw < 0.05, int, '')) %>%
+           
+           ggplot(aes(x = b_coe, 
+                      y = m_ylab, 
+                      color = rescat, 
+                      alpha = rescat,
+                      label = meta_labels)) +
+           
+           geom_point(size = 2, shape = 16, alpha = 0.6) + 
+           
+           geom_text_repel(aes(
+             x = m_xlab,
+             y = m_ylab), 
+             show.legend = FALSE, 
+             alpha = 1, 
+             box.padding = 0.3, 
+             size = 3.5,
+             seed = 17) +
+           
+           labs(x = 'Standardized difference', y = '-log10 (P-value)') +
+           scale_color_manual(values=color_map, name = '') + 
+           ggtitle('VN vs. OM, all children') +
+           theme(legend.text = element_text(size = 11),
+                 axis.title = element_text(size = 12))+
+           coord_cartesian(ylim = c(0, 5),
+                           xlim = c(-1.7, 1.7))
+         )
+  
+  saveRDS(get(plotac), file = path)
+  get(plotac)
+  
+} else {assign(plotac, readRDS(path))
+    get(plotac)}
+
+```
+
+### VG vs OM
+```{r}
+#| fig.cap: 'Figure 20. Vulcano plot showing standardized differences between VG and OM across clinical outcomes in all children, based on mixed-effects models'
+
+
+plotac <- 'fig20'
+
+path = paste0('gitignore/figures/',plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  assign(plotac, diet_child_all_Z %>% 
+           filter(estimand != 'log(OR)') %>% 
+           mutate(int = interaction(outcome, estimand)) %>%
+           mutate(VG_OM_P = if_else(VG_OM_P < 1e-5, 1e-5, VG_OM_P)) %>% 
+           mutate(
+             pv_adj = VG_OM_P_adj,
+             pv_raw = VG_OM_P,
+             b_coe = VG_OM_diff) %>% 
+           
+           mutate(pv_raw = if_else(pv_raw < 1e-5, 1e-5, pv_raw)) %>% 
+           
+           mutate(
+             m_ylab = -log10(pv_raw),
+             m_xlab = b_coe,
+             rescat = if_else(
+               pv_raw >= 0.05, 
+               'P>0.05', 
+               if_else(
+                 b_coe > 0, 
+                 'VG+', 
+                 'OM+'))) %>%
+           
+           mutate(
+             rescat = factor(rescat, 
+                             levels = c('OM+', 'VG+', 'P>0.05')),
+             meta_labels = if_else(pv_raw < 0.05, int, '')) %>% 
+           
+           ggplot(aes(x = b_coe, 
+                      y = m_ylab, 
+                      color = rescat, 
+                      alpha = rescat,
+                      label = meta_labels)) +
+           
+           geom_point(size = 2, shape = 16, alpha = 0.6) + 
+           geom_text_repel(aes(
+             x = m_xlab,
+             y = m_ylab), 
+             show.legend = FALSE, 
+             alpha=1, 
+             box.padding = 0.3,
+             size = 3.5,
+             seed = 17) +
+           
+           labs(x = 'Standardized difference', y = '-log10 (P-value)') +
+           scale_color_manual(values = color_map, name = '') +  
+           ggtitle('VG vs. OM, all children') +
+           theme(legend.text = element_text(size = 11),
+                 axis.title = element_text(size = 12))+
+           coord_cartesian(ylim = c(0, 5),
+                           xlim = c(-1.7, 1.7))
+         )
+  
+  saveRDS(get(plotac), file = path)
+  get(plotac)
+  
+} else {assign(plotac, readRDS(path))
+    get(plotac)}
+ 
+```
+
+### VN vs VG
+
+```{r}
+#| fig.cap: 'Figure 21. Vulcano plot showing standardized differences between VG and VN across clinical outcomes in all children, based on mixed-effects models'
+plotac <- 'fig21'
+
+path = paste0('gitignore/figures/', plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  assign(plotac, diet_child_all_Z %>% 
+             filter(estimand != 'log(OR)') %>% 
+           mutate(int = interaction(outcome, estimand)) %>%
+           
+           mutate(
+             pv_adj = VN_VG_P_adj,
+             pv_raw = VN_VG_P,
+             b_coe = VN_VG_diff) %>% 
+           
+           mutate(pv_raw = if_else(pv_raw < 1e-5, 1e-5, pv_raw)) %>% 
+           
+           mutate(
+             m_ylab = -log10(pv_raw),
+             m_xlab = b_coe,
+             rescat = if_else(
+               pv_raw >= 0.05, 
+               'P>0.05', 
+               if_else(
+                 b_coe > 0, 
+                 'VN+', 
+                 'VG+'))) %>%
+           
+           mutate(
+             rescat = factor(rescat, 
+                             levels=c('VG+', 
+                                      'VN+', 
+                                      'P>0.05')),
+             meta_labels = if_else(pv_raw < 0.05, int, '')) %>% 
+           
+           ggplot(aes(x = b_coe, 
+                      y = m_ylab, 
+                      color = rescat, 
+                      alpha = rescat,
+                      label = meta_labels)) +
+           
+           geom_point(size = 2, shape = 16, alpha = 0.6) + 
+           
+           geom_text_repel(aes(
+             x = m_xlab,
+             y = m_ylab), 
+             show.legend = FALSE, 
+             alpha = 1, 
+             box.padding = 0.5,
+             size = 3.5,
+             seed = 16) +
+           
+           labs(x = 'Standardized difference', 
+                y = '-log10 (P-value)') +
+           
+           scale_color_manual(values = color_map, name = '') + 
+           ggtitle('VN vs VG, all children') +
+           
+           theme(legend.text = element_text(size = 11),
+                 axis.title = element_text(size = 12))+
+           coord_cartesian(ylim = c(0, 5),
+                           xlim = c(-1.7, 1.7))
+         )
+  
+  saveRDS(get(plotac), file = path)
+  get(plotac)
+  
+} else {assign(plotac, readRDS(path))
+    get(plotac)}
+
+```
+
+## Covariates importance
+
+### Table
+
+```{r}
+AIC_child_all <- read.xlsx("gitignore/data/AIC_child_all_mixeff.xlsx") %>% 
+  mutate(across(where(is.numeric), ~round(., 1)),
+         outcome = clean_outcome_names(outcome)) %>%
+  rename(
+    SEX = aSEX,
+    BREASTFEED = Breast_Feed,
+    `OTHER COV` = other_cov,
+    FAMILY = family,
+    DIET = diet,
+    AGE = log2_age
+  ) %>%
+  mutate(outcome = case_when(
+    outcome == 'FOLAT' ~ 'FOLATE',
+    outcome == 'VKFE' ~ 'TIBC',
+    outcome == 'Cros' ~ 'CTX',
+    outcome == 'log2_Cros' ~ 'log2_CTX',
+    outcome == 'VIT_AKTB12' ~ 'HOLOTC',
+    outcome == 'log2_VIT_AKTB12' ~ 'log2_HOLOTC',
+    TRUE ~ outcome
+  ))
+
+kbl(AIC_child_all, caption = 
+      "Decrease of The Akaike information criterion (AIC) after addition of given outcome to mixed-effects model, all children. The change of AIC indicate out-of-sample predictive accuracy of the models and was bounded to -30 (large importance of a covariate, blue) and 0 (no to negliable importance, red).") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  column_spec(1, width_min = '1.5in')
+```
+
+### Heatmap
+
+```{r, fig.height=6, fig.width=4}
+#| fig.cap: 'Figure 22. Heatmap showing the extend of decrase of the Akaike information criterion (AIC) after addition of given outcome to mixed effects model, all children. The change of AIC indicate out-of-sample predictive accuracy of the models and was bounded to -30 (large importance of a covariate, blue) and 0 (no to negliable importance, red).'
+
+heat_map(AIC_child_all, mixef = TRUE)
+```
+
+# Young children
+
+## Diet effects
+
+### Unstandardized effects
+
+```{r}
+
+diet_child_young <- read.xlsx("gitignore/data/diet_child_young_mixeff.xlsx") %>% 
+  mutate(outcome = clean_outcome_names(outcome)) %>%
+  mutate(outcome = case_when(
+    outcome == 'FOLAT' ~ 'FOLATE',
+    outcome == 'VKFE' ~ 'TIBC',
+    outcome == 'Cros' ~ 'CTX',
+    outcome == 'log2_Cros' ~ 'log2_CTX',
+    outcome == 'VIT_AKTB12' ~ 'HOLOTC',
+    outcome == 'log2_VIT_AKTB12' ~ 'log2_HOLOTC',
+    TRUE ~ outcome
+  ))
+
+diet_child_young2 <- diet_child_young %>%   
+  mutate(across(.cols = c(VN_OM_diff, VG_OM_diff, VN_VG_diff), ~ round(.x, 2)))
+
+kbl(diet_child_young2, caption = 
+      "Differences between diet groups across outcomes in children < 3 years of age, based on linear models") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 2, "(A) VN vs OM" = 3, 
+                     "(B) VG vs OM" = 3, "(C) VN vs VG" =3)) %>% 
+  column_spec(1, width_min = '1.5in') 
+
+```
+
+### Standardized effects by 1SD
+
+```{r}
+
+ids <- 11:46
+inde <- min(ids)-1
+ids <- ids-inde
+
+sds <- vector("double", max(ids))
+meds <- diet_child_young 
+
+for(i in seq_along(ids)){
+  sds[i] <- ifelse(grepl("log2",meds[(i), 1]),
+                   sd(log2(dat_child_young[,(i+inde)]), na.rm=TRUE),
+                   sd(dat_child_young[,(i+inde)], na.rm=TRUE))
+}
+
+
+diet_child_young_Z <- diet_child_young %>% 
+  mutate(SD = sds) %>% 
+  mutate(VN_OM_diff = VN_OM_diff/SD,
+         VG_OM_diff = VG_OM_diff/SD,
+         VN_VG_diff = VN_VG_diff/SD) %>% 
+  select(-SD) %>% 
+  mutate(across(.cols = c(VN_OM_diff, VG_OM_diff, VN_VG_diff), ~ round(.x, 2)))
+
+
+kbl(diet_child_young_Z, caption = 
+      "Standardized differences between diet groups across outcomes in children < 3 years of age, based on linear models") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 2, "(A) VN vs OM" = 3, 
+                     "(B) VG vs OM" = 3, "(C) VN vs VG" =3)) %>% 
+  column_spec(1, width_min = '1.5in') 
+
+```
+
+## Vulcano plots
+
+### VN vs. OM
+```{r}
+#| fig.cap: 'Figure 23. Vulcano plot showing standardized differences between OM and VG across clinical outcomes in children < 3 years, based on linear model. '
+plotac <- 'fig23'
+
+path = paste0('gitignore/figures/',plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  assign(plotac, diet_child_young_Z %>% 
+           filter(estimand != 'log(OR)') %>% 
+           mutate(int = interaction(outcome, estimand)) %>%
+           
+           mutate(
+             pv_adj = VN_OM_P_adj,
+             pv_raw = VN_OM_P,
+             b_coe = VN_OM_diff) %>% 
+           
+           mutate(pv_raw = if_else(pv_raw < 1e-5, 1e-5, pv_raw)) %>% 
+           
+           mutate(
+             m_ylab = -log10(pv_raw),
+             m_xlab = b_coe,
+             rescat = if_else(
+               pv_raw >= 0.05, 
+               'P>0.05', 
+               if_else(
+                 b_coe > 0, 
+                 'VN+', 
+                 'OM+'))) %>%
+           
+           mutate(
+             rescat = factor(rescat, 
+                             levels = c('OM+', 'VN+', 'P>0.05')),
+             meta_labels = if_else(pv_raw < 0.05, int, '')) %>%
+           
+           ggplot(aes(x = b_coe, 
+                      y = m_ylab, 
+                      color = rescat, 
+                      alpha = rescat,
+                      label = meta_labels)) +
+           
+           geom_point(size = 2, shape = 16, alpha = 0.6) + 
+           
+           geom_text_repel(aes(
+             x = m_xlab,
+             y = m_ylab), 
+             show.legend = FALSE, 
+             alpha = 1, 
+             box.padding = 0.5, 
+             size = 3,
+             seed = 17) +
+           
+           labs(x = 'Standardized difference', y = '-log10 (P-value)') +
+           scale_color_manual(values = color_map, name = '') + 
+           ggtitle('VN vs. OM, children < 3 years') +
+           theme(legend.text = element_text(size = 11),
+                 axis.title = element_text(size = 12))+
+           coord_cartesian(ylim = c(0, 5),
+                           xlim = c(-1.7, 1.7))
+         )
+  
+  saveRDS(get(plotac), file = path)
+  get(plotac)
+  
+} else {assign(plotac, readRDS(path))
+    get(plotac)}
+```
+
+### VG vs OM
+
+```{r}
+#| fig.cap: 'Figure 24. Vulcano plot showing standardized differences between OM and VN across clinical outcomes in children < 3 years, based on linear models'
+#| 
+plotac <- 'fig24'
+
+path = paste0('gitignore/figures/',plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  assign(plotac, diet_child_young_Z %>% 
+           filter(estimand != 'log(OR)') %>% 
+           mutate(int = interaction(outcome, estimand)) %>%
+           
+           mutate(
+             pv_adj = VG_OM_P_adj,
+             pv_raw = VG_OM_P,
+             b_coe = VG_OM_diff) %>% 
+           
+           mutate(pv_raw = if_else(pv_raw < 1e-5, 1e-5, pv_raw)) %>% 
+           
+           mutate(
+             m_ylab = -log10(pv_raw),
+             m_xlab = b_coe,
+             rescat = if_else(
+               pv_raw >= 0.05, 
+               'P>0.05', 
+               if_else(
+                 b_coe > 0, 
+                 'VG+', 
+                 'OM+'))) %>%
+           
+           mutate(
+             rescat = factor(rescat, 
+                             levels = c('OM+', 'VG+', 'P>0.05')),
+             meta_labels = if_else(pv_raw < 0.05, int, '')) %>%
+           
+           ggplot(aes(x = b_coe, 
+                      y = m_ylab, 
+                      color = rescat, 
+                      alpha = rescat,
+                      label = meta_labels)) +
+           
+           geom_point(size = 2, shape = 16, alpha = 0.6) + 
+           
+           geom_text_repel(aes(
+             x = m_xlab,
+             y = m_ylab), 
+             show.legend = FALSE, 
+             alpha = 1, 
+             box.padding = 0.5, 
+             size = 3,
+             seed = 17) +
+           
+           labs(x = 'Standardized difference', y = '-log10 (P-value)') +
+           scale_color_manual(values = color_map, name = '') + 
+           ggtitle('VG vs. OM, children < 3 years') +
+           theme(legend.text = element_text(size = 11),
+                 axis.title = element_text(size = 12))+
+           coord_cartesian(ylim = c(0, 5),
+                           xlim = c(-1.7, 1.7))
+         )
+  
+  saveRDS(get(plotac), file = path)
+  get(plotac)
+  
+} else {assign(plotac, readRDS(path))
+    get(plotac)}
+```
+
+### VN vs VG
+
+```{r}
+#| fig.cap: 'Figure 25. Vulcano plot showing standardized differences between VN and VG across clinical outcomes in children < 3 years, based on linear models.'
+
+plotac <- 'fig25'
+
+path = paste0('gitignore/figures/', plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  assign(plotac, diet_child_young_Z %>% 
+             filter(estimand != 'log(OR)') %>% 
+           mutate(int = interaction(outcome, estimand)) %>%
+           
+           mutate(
+             pv_adj = VN_VG_P_adj,
+             pv_raw = VN_VG_P,
+             b_coe = VN_VG_diff) %>% 
+           
+           mutate(pv_raw = if_else(pv_raw < 1e-5, 1e-5, pv_raw)) %>% 
+           
+           mutate(
+             m_ylab = -log10(pv_raw),
+             m_xlab = b_coe,
+             rescat = if_else(
+               pv_raw >= 0.05, 
+               'P>0.05', 
+               if_else(
+                 b_coe > 0, 
+                 'VN+', 
+                 'VG+'))) %>%
+           
+           
+           mutate(
+             rescat = factor(rescat, 
+                             levels=c('VG+', 
+                                      'VN+', 
+                                      'P>0.05')),
+             meta_labels = if_else(pv_raw < 0.05, int, '')) %>% 
+           
+           ggplot(aes(x = b_coe, 
+                      y = m_ylab, 
+                      color = rescat, 
+                      alpha = rescat,
+                      label = meta_labels)) +
+           
+           geom_point(size = 2, shape = 16, alpha = 0.6) + 
+           
+           geom_text_repel(aes(
+             x = m_xlab,
+             y = m_ylab), 
+             show.legend = FALSE, 
+             alpha = 1, 
+             box.padding = 0.5,
+             size = 3,
+             seed = 16) +
+           
+           labs(x = 'Standardized difference', 
+                y = '-log10 (P-value)') +
+           
+           scale_color_manual(values = color_map, name = '') + 
+           ggtitle('VN vs VG, children < 3 years') +
+           
+           theme(legend.text = element_text(size = 11),
+                 axis.title = element_text(size = 12))+
+           coord_cartesian(ylim = c(0, 5),
+                           xlim = c(-1.7, 1.7))
+         )
+  
+  saveRDS(get(plotac), file = path)
+  get(plotac)
+  
+} else {assign(plotac, readRDS(path))
+    get(plotac)}
+```
+
+## Covariates importance
+
+### Table
+
+```{r}
+AIC_child_young <- read.xlsx("gitignore/data/AIC_child_young_mixeff.xlsx") %>% 
+  mutate(across(where(is.numeric), ~round(., 1)),
+         outcome = clean_outcome_names(outcome)) %>%
+  rename(
+    SEX = aSEX,
+    BREASTFEED = Breast_Feed,
+    `OTHER COV` = other_cov,
+    FAMILY = family,
+    DIET = diet,
+    AGE = log2_age
+  ) %>%
+  mutate(outcome = case_when(
+    outcome == 'FOLAT' ~ 'FOLATE',
+    outcome == 'VKFE' ~ 'TIBC',
+    outcome == 'Cros' ~ 'CTX',
+    outcome == 'log2_Cros' ~ 'log2_CTX',
+    outcome == 'VIT_AKTB12' ~ 'HOLOTC',
+    outcome == 'log2_VIT_AKTB12' ~ 'log2_HOLOTC',
+    TRUE ~ outcome
+  ))
+
+kbl(AIC_child_young, caption = 
+      "Decrease of The Akaike information criterion (AIC) after addition of given outcome to linear models, children under 3 years. The change of AIC indicate out-of-sample predictive accuracy of the models and was bounded to -30 (large importance of a covariate) and 0 (no to negliable importance)") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  column_spec(1, width_min = '1.5in')
+```
+
+### Heatmap
+
+```{r, fig.height=6, fig.width=4}
+#| fig.cap: 'Heatmap showing the extend of decrase of the Akaike information criterion (AIC) after addition of given outcome to linear model, children < 3 years. The change of AIC indicate out-of-sample predictive accuracy of the models and was bounded to -30 (large importance of a covariate, blue) and 0 (no to negliable importance, red).'
+
+heat_map(AIC_child_young, mixef = TRUE)
+```
+
+# Old children
+
+## Diet effects 
+
+### Unstandardized effects
+
+```{r}
+
+diet_child_old <- read.xlsx("gitignore/data/diet_child_old_mixeff.xlsx") %>% 
+  mutate(outcome = clean_outcome_names(outcome)) %>%
+  mutate(outcome = case_when(
+    outcome == 'FOLAT' ~ 'FOLATE',
+    outcome == 'VKFE' ~ 'TIBC',
+    outcome == 'Cros' ~ 'CTX',
+    outcome == 'log2_Cros' ~ 'log2_CTX',
+    outcome == 'VIT_AKTB12' ~ 'HOLOTC',
+    outcome == 'log2_VIT_AKTB12' ~ 'log2_HOLOTC',
+    TRUE ~ outcome
+  ))
+
+diet_child_old <- diet_child_old %>%   
+  mutate(across(.cols = c(VN_OM_diff, VG_OM_diff, VN_VG_diff), ~ round(.x, 2))) %>% 
+  filter(!is.na(VN_OM_diff))
+
+kbl(diet_child_old, caption = 
+      "Differences between diet groups across outcomes in children > 3 years of age, based on quantile regression modelling") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 2, "(A) VN vs OM" = 3, 
+                     "(B) VG vs OM" = 3, "(C) VN vs VG" =3)) %>% 
+  column_spec(1, width_min = '1.5in') 
+
+```
+
+### Standardized effects by 1SD
+
+```{r}
+
+ids <- 11:45
+inde <- min(ids)-1
+ids <- ids-inde
+
+sds <- vector("double", max(ids))
+
+for(i in seq_along(ids)){
+  sds[i] <- ifelse(grepl("log2", diet_child_old[(i),1]),
+                   sd(log2(dat_child_old[,(i+inde)]), na.rm=TRUE),
+                   sd(dat_child_old[,(i+inde)], na.rm=TRUE))
+}
+
+sds[length(ids) +1] <- 1
+
+diet_child_old_Z <- diet_child_old %>% 
+  mutate(SD = sds) %>% 
+  mutate(VN_OM_diff = VN_OM_diff/SD,
+         VG_OM_diff = VG_OM_diff/SD,
+         VN_VG_diff = VN_VG_diff/SD) %>% 
+  select(-SD) %>% 
+  mutate(across(.cols = c(VN_OM_diff, VG_OM_diff, VN_VG_diff), ~ round(.x, 2)))
+
+kbl(diet_child_old_Z, caption = 
+      "Standardized differences between diet groups across outcomes in children > 3 years of age, based on quantile regression modelling") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 2, "(A) VN vs OM" = 3, 
+                     "(B) VG vs OM" = 3, "(C) VN vs VG" =3)) %>% 
+  column_spec(1, width_min = '1.5in') 
+
+```
+
+## Vulcano plot
+
+### VN vs OM
+
+```{r}
+#| fig.cap: 'Figure 27. Vulcano plot showing standardized differences between OM and VG across clinical outcomes in children > 3 years, based on mixed-effects models'
+
+plotac <- 'fig27'
+
+path = paste0('gitignore/figures/',plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  assign(plotac, diet_child_old_Z %>% 
+           filter(estimand != 'log(OR)') %>% 
+           mutate(int = interaction(outcome, estimand)) %>%
+           
+           mutate(
+             pv_adj = VN_OM_P_adj,
+             pv_raw = VN_OM_P,
+             b_coe = VN_OM_diff) %>% 
+           
+           mutate(pv_raw = if_else(pv_raw < 1e-5, 1e-5, pv_raw)) %>% 
+           
+           mutate(
+             m_ylab = -log10(pv_raw),
+             m_xlab = b_coe,
+             rescat = if_else(
+               pv_raw >= 0.05, 
+               'P>0.05', 
+               if_else(
+                 b_coe > 0, 
+                 'VN+', 
+                 'OM+'))) %>%
+           
+           mutate(
+             rescat = factor(rescat, 
+                             levels = c('OM+', 'VN+', 'P>0.05')),
+             meta_labels = if_else(pv_raw < 0.05, int, '')) %>%
+           
+           ggplot(aes(x = b_coe, 
+                      y = m_ylab, 
+                      color = rescat, 
+                      alpha = rescat,
+                      label = meta_labels)) +
+           
+           geom_point(size = 2, shape = 16, alpha = 0.6) + 
+           
+           geom_text_repel(aes(
+             x = m_xlab,
+             y = m_ylab), 
+             show.legend = FALSE, 
+             alpha = 1, 
+             box.padding = 0.5, 
+             size = 3,
+             seed = 17) +
+           
+           labs(x = 'Standardized difference', y = '-log10 (P-value)') +
+           scale_color_manual(values = color_map, name = '') + 
+           ggtitle('VN vs. OM, children > 3 years') +
+           theme(legend.text = element_text(size = 11),
+                 axis.title = element_text(size = 12))+
+           coord_cartesian(ylim = c(0, 5),
+                           xlim = c(-1.7, 1.7))
+         )
+  
+  saveRDS(get(plotac), file = path)
+  get(plotac)
+  
+} else {assign(plotac, readRDS(path))
+    get(plotac)}
+
+```
+
+### VG vs OM
+
+```{r}
+#| fig.cap: 'Figure 28. Vulcano plot showing standardized differences between OM and VN across clinical outcomes in children > 3 years.'
+
+plotac <- 'fig28'
+
+path = paste0('gitignore/figures/',plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  assign(plotac, diet_child_old_Z %>% 
+           filter(estimand != 'log(OR)') %>% 
+           mutate(int = interaction(outcome, estimand)) %>%
+           
+           mutate(
+             pv_adj = VG_OM_P_adj,
+             pv_raw = VG_OM_P,
+             b_coe = VG_OM_diff) %>% 
+           
+           mutate(pv_raw = if_else(pv_raw < 1e-5, 1e-5, pv_raw)) %>% 
+           
+           mutate(
+             m_ylab = -log10(pv_raw),
+             m_xlab = b_coe,
+             rescat = if_else(
+               pv_raw >= 0.05, 
+               'P>0.05', 
+               if_else(
+                 b_coe > 0, 
+                 'VG+', 
+                 'OM+'))) %>%
+           
+           mutate(
+             rescat = factor(rescat, 
+                             levels = c('OM+', 'VG+', 'P>0.05')),
+             meta_labels = if_else(pv_raw < 0.05, int, '')) %>% 
+           
+           ggplot(aes(x = b_coe, 
+                      y = m_ylab, 
+                      color = rescat, 
+                      alpha = rescat,
+                      label = meta_labels)) +
+           
+           geom_point(size = 2, shape = 16, alpha = 0.6) + 
+           geom_text_repel(aes(
+             x = m_xlab,
+             y = m_ylab), 
+             show.legend = FALSE, 
+             alpha=1, 
+             box.padding = 0.5,
+             size = 3,
+             seed = 17) +
+           
+           labs(x = 'Standardized difference', y = '-log10 (P-value)') +
+           scale_color_manual(values = color_map, name = '') +  
+           ggtitle('VG vs. OM, children > 3 years') +
+           theme(legend.text = element_text(size = 11),
+                 axis.title = element_text(size = 12))+
+           coord_cartesian(ylim = c(0, 5),
+                           xlim = c(-1.7, 1.7))
+         )
+  
+  saveRDS(get(plotac), file = path)
+  get(plotac)
+  
+} else {assign(plotac, readRDS(path))
+    get(plotac)}
+```
+
+### VN vs VG
+
+```{r}
+#| fig.cap: 'Figure 29. Vulcano plot showing standardized differences between VG and VN across clinical outcomes in children <>3 years.'
+
+plotac <- 'fig29'
+
+path = paste0('gitignore/figures/', plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  assign(plotac, diet_child_old_Z %>% 
+             filter(estimand != 'log(OR)') %>% 
+           mutate(int = interaction(outcome, estimand)) %>%
+           
+           mutate(
+             pv_adj = VN_VG_P_adj,
+             pv_raw = VN_VG_P,
+             b_coe = VN_VG_diff) %>% 
+           
+           mutate(pv_raw = if_else(pv_raw < 1e-5, 1e-5, pv_raw)) %>% 
+           
+           mutate(
+             m_ylab = -log10(pv_raw),
+             m_xlab = b_coe,
+             rescat = if_else(
+               pv_raw >= 0.05, 
+               'P>0.05', 
+               if_else(
+                 b_coe > 0, 
+                 'VN+', 
+                 'VG+'))) %>%
+           
+           mutate(
+             rescat = factor(rescat, 
+                             levels=c('VG+', 
+                                      'VN+', 
+                                      'P>0.05')),
+             meta_labels = if_else(pv_raw < 0.05, int, '')) %>% 
+           
+           ggplot(aes(x = b_coe, 
+                      y = m_ylab, 
+                      color = rescat, 
+                      alpha = rescat,
+                      label = meta_labels)) +
+           
+           geom_point(size = 2, shape = 16, alpha = 0.6) + 
+           
+           geom_text_repel(aes(
+             x = m_xlab,
+             y = m_ylab), 
+             show.legend = FALSE, 
+             alpha = 1, 
+             box.padding = 0.5,
+             size = 3,
+             seed = 16) +
+           
+           labs(x = 'Standardized difference', 
+                y = '-log10 (P-value)') +
+           
+           scale_color_manual(values = color_map, name = '') + 
+           ggtitle('VN vs VG, children > 3 years') +
+           
+           theme(legend.text = element_text(size = 11),
+                 axis.title = element_text(size = 12))+
+           coord_cartesian(ylim = c(0, 5),
+                           xlim = c(-1.7, 1.7))
+         )
+  
+  saveRDS(get(plotac), file = path)
+  get(plotac)
+  
+} else {assign(plotac, readRDS(path))
+    get(plotac)}
+
+```
+
+## Covariates importance
+
+### Table
+
+```{r}
+AIC_child_old <- read.xlsx("gitignore/data/AIC_child_old_mixeff.xlsx") %>% 
+  mutate(across(where(is.numeric), ~round(., 1))) %>% 
+  mutate(outcome = clean_outcome_names(outcome)) %>%
+  rename(
+    SEX = aSEX,
+    BREASTFEED = Breast_Feed,
+    `OTHER COV` = other_cov,
+    FAMILY = family,
+    DIET = diet,
+    AGE = log2_age
+  ) %>%
+  mutate(outcome = case_when(
+    outcome == 'FOLAT' ~ 'FOLATE',
+    outcome == 'VKFE' ~ 'TIBC',
+    outcome == 'Cros' ~ 'CTX',
+    outcome == 'log2_Cros' ~ 'log2_CTX',
+    outcome == 'VIT_AKTB12' ~ 'HOLOTC',
+    outcome == 'log2_VIT_AKTB12' ~ 'log2_HOLOTC',
+    TRUE ~ outcome
+  ))
+
+kbl(AIC_child_old, caption = 
+      "Decrease of The Akaike information criterion (AIC) after addition of given outcome to quantile regression model, children > 3 years. The change of AIC indicate out-of-sample predictive accuracy of the models and was bounded to -30 (large importance of a covariate) and 0 (no to negliable importance).") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  column_spec(1, width_min = '1.5in') 
+```
+
+### Heatmap
+
+```{r, fig.height=6, fig.width=4}
+#| fig.cap: 'Figure 30. Heatmap showing the extend of decrase of the Akaike information criterion (AIC) after addition of given outcome to mixed-effects model, children > 3 years. The change of AIC indicate out-of-sample predictive accuracy of the models and was bounded to -30 (large importance of a covariate, blue) and 0 (no to negliable importance, red).'
+heat_map(AIC_child_old, mixef = TRUE)
+```
+
+# Adults
+
+## Diet effects
+
+### Unstandardized effects
+
+```{r}
+
+diet_adult <- read.xlsx("gitignore/data/diet_adult_mixeff.xlsx") %>% 
+  mutate(outcome = clean_outcome_names(outcome)) %>%
+  mutate(outcome = case_when(
+    outcome == 'FOLAT' ~ 'FOLATE',
+    outcome == 'VKFE' ~ 'TIBC',
+    outcome == 'Cros' ~ 'CTX',
+    outcome == 'log2_Cros' ~ 'log2_CTX',
+    outcome == 'VIT_AKTB12' ~ 'HOLOTC',
+    outcome == 'log2_VIT_AKTB12' ~ 'log2_HOLOTC',
+    TRUE ~ outcome
+  ))
+
+diet_adult2 <- diet_adult %>%   
+  mutate(across(.cols = c(VN_OM_diff, VG_OM_diff, VN_VG_diff), ~ round(.x, 2)))
+
+kbl(diet_adult2, caption = 
+      "Differences between diet groups across outcomes in adults, based on quantile regression modelling") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 2, "(A) VN vs OM" = 3, 
+                     "(B) VG vs OM" = 3, "(C) VN vs VG" =3)) %>% 
+  column_spec(1, width_min = '1.5in') 
+```
+
+### Standardized effects by 1SD
+
+```{r}
+
+ids <- 6:46
+
+sds <- vector("double", length(ids))
+meds <- diet_adult %>% filter(estimand == 'mean')
+
+for(i in seq_along(ids)){
+  sds[i] <- ifelse(grepl("log2", diet_adult[(i), 1]),
+                   sd(log2(dat_adult[, (i + 5)]), na.rm = TRUE),
+                   sd(dat_adult[,(i + 5)], na.rm = TRUE))
+}
+
+sds[length(ids) +1] <- 1
+sds[length(ids) +2] <- 1
+
+diet_adult_Z <- diet_adult %>% 
+  mutate(SD = sds) %>% 
+  mutate(VN_OM_diff = VN_OM_diff/SD,
+         VG_OM_diff = VG_OM_diff/SD,
+         VN_VG_diff = VN_VG_diff/SD) %>% 
+  select(-SD) %>% 
+  mutate(VG_OM_P = if_else(VG_OM_P < 1e-5, 1e-5, VG_OM_P)) %>% 
+  mutate(across(.cols = c(VN_OM_diff, VG_OM_diff, VN_VG_diff), ~ round(.x, 2)))
+
+
+kbl(diet_adult_Z, caption = 
+      "Standardized differences between diet groups across outcomes in adults, based on mixed-effects models") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  add_header_above(c(" " = 2, "(A) VN vs OM" = 3, 
+                     "(B) VG vs OM" = 3, "(C) VN vs VG" =3)) %>% 
+  column_spec(1, width_min = '1.5in') 
+```
+
+## Vulcano plots
+
+### VN vs OM
+
+```{r}
+#| fig.cap: 'Figure 31. Vulcano plot showing standardized differences between VN adn OM across clinical outcomes in adults, based on mixed-effects models.'
+
+plotac <- 'fig31'
+
+path = paste0('gitignore/figures/',plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  assign(plotac, diet_adult_Z %>% 
+           filter(estimand != 'log(OR)') %>% 
+           mutate(int = interaction(outcome, estimand)) %>%
+
+           mutate(
+             pv_adj = VN_OM_P_adj,
+             pv_raw = VN_OM_P,
+             b_coe = VN_OM_diff) %>% 
+           
+           mutate(
+             pv_adj = VN_OM_P_adj,
+             pv_raw = VN_OM_P,
+             b_coe = VN_OM_diff) %>% 
+           
+           mutate(pv_raw = if_else(pv_raw < 1e-5, 1e-5, pv_raw)) %>% 
+           
+           mutate(
+             m_ylab = -log10(pv_raw),
+             m_xlab = b_coe,
+             rescat = if_else(
+               pv_raw >= 0.05, 
+               'P>0.05', 
+               if_else(
+                 b_coe > 0, 
+                 'VN+', 
+                 'OM+'))) %>%
+           
+           mutate(
+             rescat = factor(rescat, 
+                             levels = c('OM+', 'VN+', 'P>0.05')),
+             meta_labels = if_else(pv_raw < 0.05, int, '')) %>%
+           
+           ggplot(aes(x = b_coe, 
+                      y = m_ylab, 
+                      color = rescat, 
+                      alpha = rescat,
+                      label = meta_labels)) +
+           
+           geom_point(size = 2, shape = 16, alpha = 0.6) + 
+           
+           geom_text_repel(aes(
+             x = m_xlab,
+             y = m_ylab), 
+             show.legend = FALSE, 
+             alpha = 1, 
+             box.padding = 0.6, 
+             size = 2.7,
+             seed = 17) +
+           
+           labs(x = 'Standardized difference', y = '-log10 (P-value)') +
+           scale_color_manual(values = color_map, name = '') + 
+           ggtitle('VN vs. OM, adults') +
+           theme(legend.text = element_text(size = 11),
+                 axis.title = element_text(size = 12))+
+           coord_cartesian(ylim = c(0, 5),
+                           xlim = c(-1.7, 1.7))
+         )
+  
+  saveRDS(get(plotac), file = path)
+  get(plotac)
+  
+} else {assign(plotac, readRDS(path))
+    get(plotac)}
+```
+
+
+### VG vs OM
+
+```{r}
+#| fig.cap: 'Figure 32. Vulcano plot showing standardized differences between OM and VN across clinical outcomes in adults.'
+
+plotac <- 'fig32'
+
+path = paste0('gitignore/figures/',plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  assign(plotac, diet_adult_Z %>% 
+           filter(estimand != 'log(OR)') %>% 
+           mutate(int = interaction(outcome, estimand)) %>%
+           
+           mutate(
+             pv_adj = VG_OM_P_adj,
+             pv_raw = VG_OM_P,
+             b_coe = VG_OM_diff) %>% 
+           
+           mutate(pv_raw = if_else(pv_raw < 1e-5, 1e-5, pv_raw)) %>% 
+           
+           mutate(
+             m_ylab = -log10(pv_raw),
+             m_xlab = b_coe,
+             rescat = if_else(
+               pv_raw >= 0.05, 
+               'P>0.05', 
+               if_else(
+                 b_coe > 0, 
+                 'VG+', 
+                 'OM+'))) %>%
+           
+           mutate(
+             rescat = factor(rescat, 
+                             levels = c('OM+', 'VG+', 'P>0.05')),
+             meta_labels = if_else(pv_raw < 0.05, int, '')) %>% 
+           
+           ggplot(aes(x = b_coe, 
+                      y = m_ylab, 
+                      color = rescat, 
+                      alpha = rescat,
+                      label = meta_labels)) +
+           
+           geom_point(size = 2, shape = 16, alpha = 0.6) + 
+           geom_text_repel(aes(
+             x = m_xlab,
+             y = m_ylab), 
+             show.legend = FALSE, 
+             alpha=1, 
+             box.padding = 0.6,
+             size = 2.8,
+             seed = 17) +
+           
+           labs(x = 'Standardized difference', y = '-log10 (P-value)') +
+           scale_color_manual(values = color_map, name = '') +  
+           ggtitle('VG vs OM, adults') +
+           theme(legend.text = element_text(size = 11),
+                 axis.title = element_text(size = 12))+
+           coord_cartesian(ylim = c(0, 5),
+                           xlim = c(-1.7, 1.7))
+           ) 
+  
+  saveRDS(get(plotac), file = path)
+  get(plotac)
+  
+} else {assign(plotac, readRDS(path))
+    get(plotac)}
+```
+
+### VN vs VG
+
+```{r}
+#| fig.cap: 'Figure 33. Vulcano plot showing standardized differences between VN and OM across clinical outcomes in adults.'
+
+plotac <- 'fig33'
+
+path = paste0('gitignore/figures/', plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  assign(plotac, diet_adult_Z %>% 
+             filter(estimand != 'log(OR)') %>% 
+           mutate(int = interaction(outcome, estimand)) %>%
+           
+           mutate(
+             pv_adj = VN_VG_P_adj,
+             pv_raw = VN_VG_P,
+             b_coe = VN_VG_diff) %>% 
+           
+           mutate(pv_raw = if_else(pv_raw < 1e-5, 1e-5, pv_raw)) %>% 
+           
+           mutate(
+             m_ylab = -log10(pv_raw),
+             m_xlab = b_coe,
+             rescat = if_else(
+               pv_raw >= 0.05, 
+               'P>0.05', 
+               if_else(
+                 b_coe > 0, 
+                 'VN+', 
+                 'VG+'))) %>%
+           
+           
+           mutate(
+             rescat = factor(rescat, 
+                             levels=c('VG+', 
+                                      'VN+', 
+                                      'P>0.05')),
+             meta_labels = if_else(pv_raw < 0.05, int, '')) %>% 
+           
+           ggplot(aes(x = b_coe, 
+                      y = m_ylab, 
+                      color = rescat, 
+                      alpha = rescat,
+                      label = meta_labels)) +
+           
+           geom_point(size = 2, shape = 16, alpha = 0.6) + 
+           
+           geom_text_repel(aes(
+             x = m_xlab,
+             y = m_ylab), 
+             show.legend = FALSE, 
+             alpha = 1, 
+             box.padding = 0.6,
+             size = 2.8,
+             seed = 16) +
+           
+           labs(x = 'Standardized difference', 
+                y = '-log10 (P-value)') +
+           
+           scale_color_manual(values = color_map, name = '') + 
+           ggtitle('VN vs VG, adults') +
+           
+           theme(legend.text = element_text(size = 11),
+                 axis.title = element_text(size = 12))+
+           coord_cartesian(ylim = c(0, 5),
+                           xlim = c(-1.7, 1.7))
+           ) 
+  
+  saveRDS(get(plotac), file = path)
+  get(plotac)
+  
+} else {assign(plotac, readRDS(path))
+    get(plotac)}
+```
+
+## Covariates importance
+
+### Table
+
+```{r}
+
+AIC_adult <- read.xlsx("gitignore/data/AIC_adult_mixeff.xlsx") %>% 
+  mutate(across(where(is.numeric), ~round(., 1))) %>% 
+  mutate(outcome = clean_outcome_names(outcome)) %>% 
+  filter(!outcome %in% c('AL_adult', 'BREAKS')) %>%
+  rename(
+    SEX = aSEX,
+    `OTHER COV` = other_cov,
+    FAMILY = family,
+    DIET = diet,
+    AGE = aAGE
+  ) %>%
+  mutate(outcome = case_when(
+    outcome == 'FOLAT' ~ 'FOLATE',
+    outcome == 'VKFE' ~ 'TIBC',
+    outcome == 'Cros' ~ 'CTX',
+    outcome == 'log2_Cros' ~ 'log2_CTX',
+    outcome == 'VIT_AKTB12' ~ 'HOLOTC',
+    outcome == 'log2_VIT_AKTB12' ~ 'log2_HOLOTC',
+    TRUE ~ outcome
+  ))
+
+kbl(AIC_adult, caption = 
+      "Decrease of The Akaike information criterion (AIC) after addition of given outcome to mixed effect models, for adults. The change of AIC indicate out-of-sample predictive accuracy of the models and was bounded to -30 (large importance of a covariate) and 0 (no to negliable importance).") %>% 
+  kable_styling("striped",full_width = T) %>% 
+  column_spec(1, width_min = '1.5in') 
+```
+
+### Heatmap
+
+```{r, fig.height=6, fig.width=4}
+#| fig.cap: 'Figure 34. Heatmap showing the extend of decrase of the Akaike information criterion (AIC) after addition of given outcome to mixed-effects models, for adults. The change of AIC indicate out-of-sample predictive accuracy of the models and was bounded to -30 (large importance of a covariate, blue) and 0 (no to negliable importance, red).'
+heat_map(AIC_adult, mixef = TRUE)
+```
+
+# Vulcano matrix
+
+## Main matrix
+
+### Prepare
+
+```{r}
+plotac <- 'fig35'
+path = paste0('gitignore/figures/', plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  fig23 <- fig23 + theme(legend.position = 'none',
+                       plot.title = element_blank())
+  fig24 <- fig24+ theme(legend.position = 'none',
+                      plot.title = element_blank())
+  fig25 <- fig25 + theme(legend.position = 'none',
+                       plot.title=element_blank())
+
+  fig27 <- fig27 + theme(legend.position = 'none',
+                       plot.title = element_blank())
+  fig28 <- fig28+ theme(legend.position = 'none',
+                      plot.title = element_blank())
+  fig29 <- fig29 + theme(legend.position = 'none',
+                       plot.title = element_blank())
+
+  fig31 <- fig31 + theme(legend.position = 'bottom',
+                       plot.title = element_blank())
+  fig32 <- fig32 + theme(legend.position = 'bottom',
+                      plot.title = element_blank())
+  fig33 <- fig33 + theme(legend.position = 'bottom',
+                       plot.title = element_blank())
+  }
+```
+
+
+### Create subfigures
+
+```{r, fig.height=10, fig.width=10, warning=FALSE}
+
+if(file.exists(path) == FALSE){
+  child_young_volc <- ggarrange(fig23 + 
+                       theme(axis.text.x = element_blank(),
+                             axis.ticks.x = element_blank(),
+                             axis.title.x = element_blank()) , 
+                   fig24 + 
+                       theme(axis.text.y = element_blank(),
+                             axis.ticks.y = element_blank(),
+                             axis.title.y = element_blank(),
+                             axis.text.x = element_blank(),
+                             axis.ticks.x = element_blank(),
+                             axis.title.x = element_blank()), 
+                   
+                   fig25 + 
+                       theme(axis.text.y = element_blank(),
+                             axis.ticks.y = element_blank(),
+                             axis.title.y = element_blank(),
+                             axis.text.x = element_blank(),
+                             axis.ticks.x = element_blank(),
+                             axis.title.x = element_blank()),
+                   nrow = 1, 
+                   ncol = 3,
+                   widths = c(1.1, 1, 1),
+                   labels = c('A', '', '')
+                   )
+  
+  child_young_volc <- annotate_figure(
+    child_young_volc,
+    top = text_grob("Children < 3 years", face = "bold", size = 10))
+                  
+  
+  child_old_volc <- ggarrange(
+
+                   fig27 + 
+                       theme(axis.text.x = element_blank(),
+                             axis.ticks.x = element_blank(),
+                             axis.title.x = element_blank()) , 
+                   
+                   fig28 + 
+                       theme(axis.text.y = element_blank(),
+                             axis.ticks.y = element_blank(),
+                             axis.title.y = element_blank(),
+                             axis.text.x = element_blank(),
+                             axis.ticks.x = element_blank(),
+                             axis.title.x = element_blank()), 
+                   
+                   fig29 + 
+                       theme(axis.text.y = element_blank(),
+                             axis.ticks.y = element_blank(),
+                             axis.title.y = element_blank(),
+                             axis.text.x = element_blank(),
+                             axis.ticks.x = element_blank(),
+                             axis.title.x = element_blank()),
+                   nrow = 1, 
+                   ncol = 3,
+                   widths = c(1.1, 1, 1),
+                   labels = c('B', '', '')
+                   )
+  child_old_volc <- annotate_figure(
+    child_old_volc,
+    top = text_grob("Children > 3 years", face = "bold", size = 10))              
+                   
+  adult_volc <- ggarrange(                   
+                   fig31,
+                   fig32 + 
+                       theme(axis.text.y = element_blank(),
+                             axis.ticks.y = element_blank(),
+                             axis.title.y = element_blank() ), 
+                   fig33 + 
+                       theme(axis.text.y = element_blank(),
+                             axis.ticks.y = element_blank(),
+                             axis.title.y = element_blank()) ,
+                   nrow = 1, 
+                   ncol = 3,
+                   widths = c(1.1, 1, 1),
+                   labels = c('C', '', '')
+                   )
+  
+  adult_volc <- annotate_figure(
+    adult_volc,
+    top = text_grob("Adults", face = "bold", size = 10))       
+  }
+```
+
+### Figure
+
+```{r, fig.height=10, fig.width=10, warning=FALSE}
+#| fig.cap: 'Figure 35. Vulcano plot showing standardized differences between VN vs OM (*left*), VG vs OM (*middle*) and VN vs VG (*right*) across clinical outcomes in children younger 3 years (**A**, *top*), children older 3 years (**B**) and adults (**C**, *bottom*). Estimated effects are based on mixed-effects models.'
+
+if(file.exists(path) == FALSE){
+  assign(plotac,
+       ggarrange(
+         child_young_volc, 
+         child_old_volc, 
+         adult_volc,
+         nrow = 3, 
+         ncol = 1,
+         heights = c(1, 1, 1.33))
+       )
+  
+  saveRDS(get(plotac), file = path)
+  get(plotac)} else {
+    assign(plotac, readRDS(path))
+    get(plotac)}
+```
+
+
+## All children matrix
+
+Everything in at once
+
+```{r, fig.height=5, fig.width=10, warning=FALSE}
+#| fig.cap: 'Figure 36. Vulcano plot showing standardized differences between VN vs OM (*left*), VG vs OM (*middle*) and VN vs VG (*right*) across clinical outcomes in children of all ages. Estimated effects are based on mixed-effects models.'
+
+plotac <- 'fig36'
+path = paste0('gitignore/figures/', plotac, '.rds')
+
+if(file.exists(path) == FALSE){
+  fig19 <- fig19 + theme(legend.position = 'bottom',
+                       plot.title = element_blank())
+  fig20 <- fig20 + theme(legend.position = 'bottom',
+                      plot.title = element_blank())
+  fig21 <- fig21 + theme(legend.position = 'bottom',
+                       plot.title = element_blank())
+  
+  child_all_volc <- ggarrange(
+    fig19,
+    fig20 + 
+      theme(axis.text.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.title.y = element_blank()), 
+    
+    fig21 +
+      theme(axis.text.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.title.y = element_blank()),
+    nrow = 1, 
+    ncol = 3,
+    widths = c(1.1, 1, 1))
+  
+   assign(plotac,
+          annotate_figure(
+            child_all_volc,
+            top = text_grob("All children", 
+                            face = "bold", 
+                            size = 10)))
+   
+   saveRDS(get(plotac), file = path)
+   get(plotac)
+} else {
+    assign(plotac, readRDS(path))
+    get(plotac)}
+
+```
+
+# Heatmap matrix
+
+```{r, fig.height=6, fig.width=10, warning=FALSE}
+h1 <- heat_map(AIC_child_young, mixef = TRUE, main = 'Children < 3 years old', listt = TRUE)
+h2 <- heat_map(AIC_child_old, mixef = TRUE, main = 'Children > 3 years old', listt = TRUE)
+h3 <- heat_map(AIC_adult, mixef = TRUE, main = 'Adults', listt = TRUE)
+
+grid.arrange(grobs = list(h1$gtable, h2$gtable, h3$gtable),
+             nrow = 1, ncol = 3)
+
+plotac <- 'heatmaps_mixef_combo'
+path = paste0('gitignore/figures/', plotac, '.pdf')
+if(file.exists(path) == FALSE){
+  pdf(path, width = 10, height = 6)  
+  grid.arrange(grobs = list(h1$gtable, h2$gtable, h3$gtable),
+             nrow = 1, ncol = 3)
+  dev.off()
+}
+
+path <- paste0('gitignore/figures/', plotac, '.pdf')
+if (!file.exists(path)) {
+  pdf(path, width = 10, height = 6)  
+  grid.arrange(grobs = list(h1$gtable, h2$gtable, h3$gtable),
+             nrow = 1, ncol = 3)
+  dev.off()
+}
+
+path <- paste0('gitignore/figures/', plotac, '.tiff')
+if (!file.exists(path)) {
+  tiff(path, width = 10, height = 6, units = 'in', res = 400) 
+  grid.arrange(grobs = list(h1$gtable, h2$gtable, h3$gtable),
+             nrow = 1, ncol = 3)
+  dev.off()
+}
+```
+
+
+# Reproducibility
+
+```{r, collapse=TRUE}
+sessionInfo()
+```
