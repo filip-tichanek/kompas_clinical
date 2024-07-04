@@ -15,7 +15,7 @@ Marina Heniková<sup>1,2</sup>, Anna Ouřadová<sup>1</sup>, Eliška Selinger<su
 
 ---------------------------------------------------------------------------------------------------
 
-This is a statistical report of the study that has not been submitted to any journal yet.
+This is a statistical report of the study that has been submitted to [TO BE ADDED]
 
 When using this code or data, cite the original publication:
 
@@ -29,9 +29,9 @@ BibTex citation for the original publication:
 
 Original [GitHub repository](https://github.com/filip-tichanek/kompas_clinical): https://github.com/filip-tichanek/kompas_clinical
 
-Statistical **reports** can be found on the [reports hub](index.html).
+Statistical **reports** can be found on the [reports hub](https://filip-tichanek.github.io/kompas_clinical/).
 
-Data analysis is described in detail in the [statistical methods](368_G_Methods.html) report.
+Data analysis is described in detail in the [statistical methods](https://filip-tichanek.github.io/kompas_clinical/368_G_Methods.html) report.
 
 ----------------------------------------------------------------------------------------------------
 
