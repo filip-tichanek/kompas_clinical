@@ -45,7 +45,7 @@ This project is designed to evaluate and compare clinical outcomes across three 
 
 The dataset is structured with data clustered within families, encompassing both adults and children. Children and adults are analyzed separately. The analysis for children is twofold: firstly, all children are considered as a single group with age (log2-transformed) serving as a covariate; secondly, a more detailed examination divides children into two age groups—those younger than 3 years and those 3 years and older.
 
-**Main Questions**
+## Main Questions
 
 The study aims to address the following key questions:
 
@@ -57,7 +57,16 @@ Q3. Beyond diet group, what factors (such sex, age, breastfeeding status in chil
 
 Q4. Could the clinical characteristics effectively discriminate between different diet groups?
 
-Statistical methods used include the **Kruskal-Wallis** test and **Mann-Whitney U test** to compare unadjusted medians, **Fisher test** was used to compare proportions (Q1). **Quantile regression** was used to obtain adjusted differences in medians (Q1), 20th and 80th percentiles of the clinical characteristics (Q2), and to assess the relative importance of other covariates (Q3). **Linear mixed-effects models** provided information about adjusted differences between diet groups (Q1) and the importance of other variables, including clustering within families (Q3). **Elastic net logistic regression** was employed to address Q4, offering a predictive perspective on the role of diet in determining clinical profiles.
+## Statistical methods
+
+Statistical modelling is described in detail in [this report](https://filip-tichanek.github.io/kompas_clinical/368_G_Methods.html). Briefly, statistical methods used included: 
+
+The **Kruskal-Wallis** test and **Mann-Whitney U test** to compare unadjusted medians, **Fisher test** was used to compare unadjusted proportions (Q1). 
+
+**Quantile regression** (QR) was used to obtain adjusted differences in medians (Q1), 20th and 80th percentiles of the clinical characteristics (Q2), and to assess the relative importance of other covariates (Q3). **Linear mixed-effects models** (LME) provided information about adjusted differences between diet groups (Q1) and the importance of other variables, including clustering within families (Q3).  
+Both QR and LME **were adjusted for confounders including age, sex, breast-feeding status (children), and relevant supplementation**.
+
+**Elastic net logistic regression** was employed to address Q4, offering a predictive perspective on the role of diet in determining clinical profiles.
 
 Separate analyses were conducted for adults and children. For children, the analysis included a joint examination of all children, incorporating log2(age) as a covariate, and subgroup-specific analyses of children *under* and *over* 3 years of age separately.
 
