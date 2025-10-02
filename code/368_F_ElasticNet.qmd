@@ -1,0 +1,1367 @@
+---
+title: "Dietary intake, Nutritional status, and Health outcomes among Vegan, Vegetarian and Omnivore families: results from the observational study"
+subtitle: "Statistical report - diet prediction (elastic net)"
+format: 
+  html:  
+    embed-resources: true
+    keep-md: false
+    toc: true
+    toc-expand: 3
+    toc-depth: 4
+    toc-location: left
+    number-sections: true
+    number-depth: 4
+    code-fold: show
+    code-tools: true
+    code-summary: "Open code"
+    grid: 
+      body-width: 1000px
+      sidebar-width: 600px
+      margin-width: 100px
+editor: source
+theme: darkly
+highlight-style: github-dark
+fontsize: 12 px
+code-block-bg: "#2D2D31"
+bibliography: ../references.bib
+fontcolor: '#C4C4C4'
+monobackgroundcolor: "#3B3B3B"
+---
+
+------------------------------------------------------------------------
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(collapse = TRUE)
+knitr::opts_knit$set(root.dir = "/home/ticf/GitRepo/ticf/368_MOCA_kompas_clinical")
+```
+
+```{css, echo=FALSE}
+code.sourceCode {
+  font-size: 0.86em;
+  border: 1px solid #ffffff; 
+  padding: 9px; 
+}
+
+code{
+    color: #EEE8AA; 
+    background: #96464D
+}
+
+.equation {
+  text-align: center;
+  display: block;
+  margin: auto;
+}
+
+body {
+  text-align: justify;
+}
+```
+
+{{< include ../README.md >}}
+
+```{r}
+# Import initiation file
+source('r/368_initiation.R')
+```
+
+# Data wrangling
+
+## All children
+
+```{r}
+skimr::skim(dat_child_all)
+```
+
+
+### Wrangle data
+
+```{r}
+
+for (i in 1:ncol(dat_child_all)) {
+  names(dat_child_all)[i] <- str_replace_all(
+    names(dat_child_all)[i], c("^a" = "")
+  )
+}
+
+dat_child_all <- dat_child_all %>%
+  rename(
+    FOLATE = FOLAT,
+    TIBC = VKFE,
+    HOLOTC = VIT_AKTB12,
+    CTX = Cros,
+    uCCR = Ca_per_Krea,
+    uICR = I_per_Krea,
+    uPCR = P_per_Krea,
+    uCa = Ur_Ca
+    ) %>% 
+  mutate(
+    log2_TG = log2(TG),
+    log2_Se = log2(Se),
+    log2_Zn = log2(Zn),
+    log2_FERR = log2(FERR),
+    log2_TRFINDEX = log2(TRFINDEX),
+    log2_STRF = log2(STRF),
+    log2_CTX = log2(CTX),
+    log2_UI = log2(UI),
+    log2_CREA = log2(CREA),
+    log2_HOLOTC = log2(HOLOTC),
+    log2_HCY = log2(HCY),
+    log2_MMA = log2(MMA),
+    log2_VIT_D = log2(VIT_D),
+    log2_IGF1 = log2(IGF1),
+    log2_uCa = log2(uCa),
+    log2_uCCR = log2(uCCR),
+    log2_uICR = log2(uICR)
+    ) %>% 
+  mutate(
+    male = if_else(SEX == "M", 1, 0),
+    GRP = factor(GRP),
+    FAM = factor(FAM)
+  ) %>%
+  select(
+    
+    ## remove irrelevant variables not included to any inference and prediction
+    -c(SEX, BreastFeed_full, BreastFeed_total, ID, dev_delay, BREAKS, AGE),
+    
+    ## remove information about supplementation
+    -c(SUP_VEG1:SUP_OTH),
+    
+    ## remove non-log2-transformed version when log2(variable) is included
+    -c(TG, Se, Zn, FERR, TRFINDEX,
+       STRF, CTX, UI, CREA, HOLOTC, HCY,
+       MMA, VIT_D, IGF1, uCa, uCCR, uICR
+       )
+    ) %>% 
+  select(FAM, GRP, log2_age, male, BiW, 
+         BreastFeed_full_duration, BreastFeed_full_stopped, BreastFeed_total_stopped,
+         everything()
+         )
+```
+
+
+### Missing values and standardization
+
+```{r}
+skimr::skim(dat_child_all)
+```
+
+Removing features with over 25% NA values: all variables are below this threshold, no will be excluded
+
+#### Multiple imputation
+
+Prepare
+
+```{r}
+
+dat_child_all_toimp <- dat_child_all %>% select(-FAM)
+
+init <- mice(dat_child_all_toimp, maxit = 0)
+init$method
+
+data_imputed <- run(
+  expr = mice(
+    dat_child_all_toimp,
+    method = init$method,
+    m = 1
+  ),
+  path = "gitignore/run/data_child_all_imputed"
+)
+
+dat_child_all_imputed <- data.frame(
+  FAM = dat_child_all$FAM,
+  complete(data_imputed, 'all')[1]$`1`
+  )
+
+```
+
+#### Rescaling
+
+```{r}
+
+dat_child_all_imputed <- dat_child_all_imputed %>%
+  mutate(
+    across(
+      where(~ is.numeric(.) && length(unique(.)) > 2),
+      arm::rescale
+    )
+  )
+
+summary(dat_child_all_imputed)
+```
+
+
+## Adults
+
+### Wrangle data
+
+```{r}
+
+for (i in 1:ncol(dat_adult)) {
+  names(dat_adult)[i] <- str_replace_all(
+    names(dat_adult)[i], c("^a" = "")
+  )
+}
+
+
+dat_adult <- dat_adult %>%
+  rename(
+    FOLATE = FOLAT,
+    TIBC = VKFE,
+    HOLOTC = VIT_AKTB12,
+    CTX = Cros,
+    uCCR = Ca_per_Krea,
+    uICR = I_per_Krea,
+    uPCR = P_per_Krea,
+    uCa = Ur_Ca
+  ) %>%
+  mutate(
+    log2_FAT = log2(FAT),
+    log2_FFM = log2(FFM),
+    log2_TC = log2(TC),
+    log2_TG = log2(TG),
+    log2_Se = log2(Se),
+    log2_Zn = log2(Zn),
+    log2_TIBC = log2(TIBC),
+    log2_FERR = log2(FERR),
+    log2_TRF = log2(TRF),
+    log2_TRFINDEX = log2(TRFINDEX),
+    log2_STRF = log2(STRF),
+    log2_CTX = log2(CTX),
+    log2_P1NP = log2(P1NP),
+    log2_UI = log2(UI),
+    log2_UREA = log2(UREA),
+    log2_CREA = log2(CREA),
+    log2_HOLOTC = log2(HOLOTC),
+    log2_HCY = log2(HCY),
+    log2_MMA = log2(MMA),
+    log2_VIT_D = log2(VIT_D),
+    log2_uCa = log2(uCa),
+    log2_uCCR = log2(uCCR),
+    log2_uICR = log2(uICR)
+  ) %>%
+  mutate(
+    male = if_else(SEX == "M", 1, 0),
+    GRP = factor(GRP),
+    FAM = factor(FAM)
+  ) %>%
+  select(
+
+    ## remove irrelevant variables not included to any inference and prediction
+    -c(SEX, ID),
+
+    ## remove information about supplementation
+    -c(SUP_VEG1:SUP_OTH),
+
+    ## remove non-log2-transformed version when log2(variable) is included
+    -c(
+      FAT, FFM, TC, TG, Se, Zn, TIBC, FERR, TRF, TRFINDEX, STRF, 
+      CTX, P1NP, UI, UREA, CREA, HOLOTC, HCY, MMA, VIT_D, 
+      uCa, uCCR, uICR
+    )
+  ) %>%
+  select(
+    FAM, GRP, AGE, male,
+    everything()
+  )
+
+summary(dat_adult)
+```
+
+
+### Missing vlaues and stadardization
+
+```{r}
+skimr::skim(dat_adult)
+```
+
+All features has over 3/4 of non-missing values
+
+#### Multiple imputation
+
+Prepare
+
+```{r}
+
+dat_adult_toimp <- dat_adult %>% select(-FAM)
+
+init <- mice(dat_adult_toimp, maxit = 0)
+init$method
+
+data_imputed <- run(
+  expr = mice(
+    dat_adult_toimp,
+    method = init$method,
+    m = 1
+  ),
+  path = "gitignore/run/data_adult_imputed"
+)
+
+dat_adult_imputed <- data.frame(
+  FAM = dat_adult$FAM,
+  complete(data_imputed, 'all')[1]$`1`
+  )
+```
+
+#### Rescaling
+
+```{r}
+
+dat_adult_imputed <- dat_adult_imputed %>%
+  mutate(
+    across(
+      where(~ is.numeric(.) && length(unique(.)) > 2),
+      arm::rescale
+    )
+  )
+
+summary(dat_adult_imputed)
+```
+
+
+# Diet prediction
+
+(OM, VN, VG determination)
+
+All prediction models will account for the variable `FAM` as the grouping (block) variable, ensuring that all subject of a single family will be part of the same fold during each bootstrap iteration. 
+
+
+## All children
+
+### Baseline model
+
+Following models will be trained to discriminate between two diets, based solely on `log2_age`, `male`, `BreastFeed_total_stopped`, `BreastFeed_full_stopped` and interaction `BreastFeed_full_duration`.
+
+
+#### Prepare data
+
+```{r}
+dat_pred <- dat_child_all_imputed %>% 
+  select(GRP, FAM, log2_age, male, BreastFeed_full_duration,  
+         BreastFeed_full_stopped, BreastFeed_total_stopped, BiW) 
+
+nfam <- dat_pred$FAM %>% factor() %>% levels() %>% length()
+
+dat_features <- dat_pred %>% select(-FAM, -GRP) %>% as.matrix
+colnames(dat_features)
+
+dat_outcome <- dat_pred %>% select(GRP) %>% as.matrix
+```
+
+#### VN vs OM
+
+```{r, warning=FALSE}
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'VG') %>% 
+  mutate(outcome = if_else(GRP == 'VN', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_baseline_child_all_VN_OM'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+#get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+#### VG vs OM
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'VN') %>% 
+  mutate(outcome = if_else(GRP == 'VG', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_baseline_child_all_VG_OM'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+#get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+#### VN vs VG
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'OM') %>% 
+  mutate(outcome = if_else(GRP == 'VN', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_baseline_child_all_VN_VG'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+#get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+### Complete model
+
+Baseline + clinical characteristics 
+
+#### Prepare data
+
+```{r}
+
+dat_pred <- dat_child_all_imputed %>% 
+  select(GRP, FAM, log2_age, male, BreastFeed_full_duration,  
+         BreastFeed_full_stopped, BreastFeed_total_stopped, 
+         BiW,
+         MASS_Perc:log2_uICR)
+
+dat_features <- dat_pred %>% select(-FAM, -GRP)  %>% as.matrix
+colnames(dat_features)
+```
+
+#### VN vs OM
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'VG') %>% 
+  mutate(outcome = if_else(GRP == 'VN', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_complet_child_all_VN_OM'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+#### VG vs OM
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'VN') %>% 
+  mutate(outcome = if_else(GRP == 'VG', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_complet_child_all_VG_OM'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+#get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+#### VN vs VG
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'OM') %>% 
+  mutate(outcome = if_else(GRP == 'VN', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_complet_child_all_VN_VG'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+#get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+### Reduced 
+
+Baseline + clinical characteristics not affected with vitamins supplementation
+
+#### Prepare data
+
+```{r}
+
+dat_pred <- dat_child_all_imputed %>% 
+  select(GRP, FAM, log2_age, male, BreastFeed_full_duration,  
+         BreastFeed_full_stopped, BreastFeed_total_stopped, 
+         BiW,
+         MASS_Perc:Mg, 
+         log2_TG:log2_Zn,
+         HGB:UA,
+         log2_CTX, log2_CREA, log2_IGF1
+         )
+
+dat_features <- dat_pred %>% select(-FAM, -GRP)  %>% as.matrix
+colnames(dat_features)
+```
+
+#### VN vs OM
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'VG') %>% 
+  mutate(outcome = if_else(GRP == 'VN', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_complex_child_all_VN_OM'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+#### VG vs OM
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'VN') %>% 
+  mutate(outcome = if_else(GRP == 'VG', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_complex_child_all_VG_OM'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+#get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+#### VN vs VG
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'OM') %>% 
+  mutate(outcome = if_else(GRP == 'VN', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_complex_child_all_VN_VG'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+#get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+## Adults
+
+### Baseline model
+
+Following models will be trained to discriminate between two diets, based solely on `AGE` and `SEX`. 
+
+
+#### Prepare data
+
+```{r}
+dat_pred <- dat_adult_imputed %>% 
+  select(GRP, FAM, AGE, male) 
+
+nfam <- dat_pred$FAM %>% factor() %>% levels() %>% length()
+
+dat_features <- dat_pred %>% select(-FAM, -GRP) %>% as.matrix
+colnames(dat_features)
+
+dat_outcome <- dat_pred %>% select(GRP) %>% as.matrix
+```
+
+#### VN vs OM
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'VG') %>% 
+  mutate(outcome = if_else(GRP == 'VN', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_baseline_adult_VN_OM'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+#### VG vs OM
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'VN') %>% 
+  mutate(outcome = if_else(GRP == 'VG', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_baseline_adult_VG_OM'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+#get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+#### VN vs VG
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'OM') %>% 
+  mutate(outcome = if_else(GRP == 'VN', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_baseline_adult_VN_VG'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+#get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+### Complete model
+
+Baseline + clinical characteristics
+
+#### Prepare data
+
+```{r}
+
+dat_pred <- dat_adult_imputed 
+
+dat_features <- dat_pred %>% select(-FAM, -GRP)  %>% as.matrix
+colnames(dat_features)
+```
+
+#### VN vs OM
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'VG') %>% 
+  mutate(outcome = if_else(GRP == 'VN', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_complet_adult_VN_OM'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+#### VG vs OM
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'VN') %>% 
+  mutate(outcome = if_else(GRP == 'VG', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_complet_adult_VG_OM'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+#get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+#### VN vs VG
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'OM') %>% 
+  mutate(outcome = if_else(GRP == 'VN', 1, 0)) %>% 
+  select(-GRP)
+
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_complet_adult_VN_VG'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+#get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+### Reduced model
+
+Baseline + clinical characteristics not affected with vitamin supplementation
+
+#### Prepare data
+
+```{r}
+
+dat_pred <- dat_adult_imputed %>% 
+  select(GRP, FAM, AGE, male,   
+         BMI:Mg, 
+         HGB:UA,
+         AL_adult:log2_Zn,
+         log2_CTX, log2_P1NP, 
+         log2_UREA:log2_CREA
+         )
+
+dat_features <- dat_pred %>% select(-FAM, -GRP)  %>% as.matrix
+colnames(dat_features)
+```
+
+#### VN vs OM
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'VG') %>% 
+  mutate(outcome = if_else(GRP == 'VN', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_complex_adult_VN_OM'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+#### VG vs OM
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'VN') %>% 
+  mutate(outcome = if_else(GRP == 'VG', 1, 0)) %>% 
+  select(-GRP)
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_complex_adult_VG_OM'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+#get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+#### VN vs VG
+
+```{r, warning=FALSE}
+
+## Prepare working data
+dat_pred_temp <- dat_pred %>% 
+  filter(GRP != 'OM') %>% 
+  mutate(outcome = if_else(GRP == 'VN', 1, 0)) %>% 
+  select(-GRP)
+
+
+mean(dat_pred_temp$outcome)
+
+## Fit and validate model
+modelac <- 'pred_complex_adult_VN_VG'
+
+assign(modelac, run(
+  clustered_glmnet(
+    data = dat_pred_temp,
+    outcome = 'outcome',
+    clust_id = 'FAM', 
+    sample_method = 'atypboot',
+    N = 500,
+    alphas = seq(0, 1, by = 0.2),
+    seed = 368),
+  path = paste0('gitignore/run/', modelac), 
+  reuse = TRUE))
+    
+## Calibration curve         
+#get(modelac)$plot
+             
+## Model summary
+t(get(modelac)$model_summary)
+get(modelac)$valid_performances %>% summary
+
+## Model coefficients
+get(modelac)$betas
+```
+
+## Results summaries
+### Prepare data 
+
+```{r}
+models_names <- c(
+  "pred_baseline_child_all_VN_OM",
+  "pred_baseline_child_all_VG_OM",
+  "pred_baseline_child_all_VN_VG",
+  "pred_complex_child_all_VN_OM",
+  "pred_complex_child_all_VG_OM",
+  "pred_complex_child_all_VN_VG",
+  "pred_complet_child_all_VN_OM",
+  "pred_complet_child_all_VG_OM",
+  "pred_complet_child_all_VN_VG",
+  "pred_baseline_adult_VN_OM",
+  "pred_baseline_adult_VG_OM",
+  "pred_baseline_adult_VN_VG",
+  "pred_complex_adult_VN_OM",
+  "pred_complex_adult_VG_OM",
+  "pred_complex_adult_VN_VG",
+  "pred_complet_adult_VN_OM",
+  "pred_complet_adult_VG_OM",
+  "pred_complet_adult_VN_VG"
+)
+
+tr <- get(models_names[1])$model_summary[
+  c(
+    "auc_optimism_corrected",
+    "auc_optimism_corrected_CIL",
+    "auc_optimism_corrected_CIU"
+  )
+]
+
+for (i in 2:length(models_names)) {
+  tr <- dplyr::bind_rows(tr, get(models_names[i])$model_summary[
+    c(
+      "auc_optimism_corrected",
+      "auc_optimism_corrected_CIL",
+      "auc_optimism_corrected_CIU"
+    )
+  ])
+}
+
+tr <- data.frame(models_names,
+  y_pos = c(
+    rep(0.9, 3),
+    rep(0.8, 3),
+    rep(0.7, 3),
+    rep(0.5, 3),
+    rep(0.4, 3),
+    rep(0.3, 3)
+  ),
+  age_group = c(
+    rep("children", 9),
+    rep("adults", 9)
+  ),
+  contrast = str_sub(models_names, -5, -1),
+  model = str_sub(models_names, 6, 12),
+  tr
+) %>%
+  mutate(
+    model = fct_recode(model,
+      "baseline" = "baselin",
+      "reduced" = "complex",
+      "full" = "complet"
+    )
+  ) %>% 
+  rename(
+    AUC = auc_optimism_corrected,
+    CI_L = auc_optimism_corrected_CIL,
+    CI_U = auc_optimism_corrected_CIU
+  ) %>% 
+  select(
+    age_group, model, contrast, AUC, CI_L, CI_U, models_names, y_pos
+  )
+```
+
+### Models performance summary
+
+```{r}
+tr %>%
+  mutate(`AUC [95% CI]` = paste0(
+    round(AUC, 2),
+    " [",
+    round(CI_L, 2),
+    ", ",
+    round(CI_U, 2),
+    "]"
+  )) %>%
+  select(age_group:contrast, `AUC [95% CI]`) %>%
+  kableExtra::kable(caption = "Results of elastic net predictive models distinguishing between diet groups. `age_group` indicates the cohort (children or adults). `model` specifies the covariates included: `baseline` includes only basic patient characteristics (age, sex, breastfeeding-related covariates and birth weight for children); `reduced` adds clinical characteristics not primarily driven by supplementation; `full` includes all clinical characteristics. `contrast` denotes the pair of diet groups used for model training: `VN_OM` (vegans vs. omnivores), `VG_VN` (vegetarians vs. vegans), and `OM_VG` (omnivores vs. vegetarians). `AUC [95% CI]` represents the out-of-sample AUC estimated via clustered bootstrap, with corresponding 95% confidence intervals.")
+```
+
+
+### Comparison of baseline vs more complex models
+
+```{r}
+
+baseline <- tr %>% filter(model == "baseline")
+full <- tr %>% filter(model == "full")
+reduced <- tr %>% filter(model == "reduced")
+
+compmod <- compare_predmod(
+  get(baseline$models_names[1]),
+  get(reduced$models_names[1])
+)
+
+comp_table <- data.frame(
+  age_group = baseline$age_group[1],
+  contrast = baseline$contrast[1],
+  auc_gain = compmod[1],
+  CI_L = compmod[2],
+  CI_U = compmod[3],
+  P = compmod[4],
+  models = interaction(baseline$model[1], reduced$model[1])
+)
+
+for (i in 2:nrow(baseline)) {
+  compmod <- compare_predmod(
+    get(baseline$models_names[i]),
+    get(reduced$models_names[i])
+  )
+
+  comp_table_tmp <- data.frame(
+    age_group = baseline$age_group[i],
+    contrast = baseline$contrast[i],
+    auc_gain = compmod[1],
+    CI_L = compmod[2],
+    CI_U = compmod[3],
+    P = compmod[4],
+    models = interaction(baseline$model[i], reduced$model[i])
+  )
+
+  comp_table <- dplyr::bind_rows(comp_table, comp_table_tmp)
+
+  i <- i + 1
+}
+
+comp_table
+
+
+dim1 <- nrow(comp_table)
+
+for (i in (dim1 + 1):(dim1 + nrow(baseline))) {
+  compmod <- compare_predmod(
+    get(baseline$models_names[i - dim1]),
+    get(full$models_names[i - dim1])
+  )
+
+  comp_table_tmp <- data.frame(
+    age_group = baseline$age_group[i - dim1],
+    contrast = baseline$contrast[i - dim1],
+    auc_gain = compmod[1],
+    CI_L = compmod[2],
+    CI_U = compmod[3],
+    P = compmod[4],
+    models = interaction(baseline$model[i - dim1], full$model[i - dim1])
+  )
+
+  comp_table <- dplyr::bind_rows(comp_table, comp_table_tmp)
+}
+
+comp_table %>%
+  mutate(
+    `AUC gain [95% CI]` = paste0(
+      round(auc_gain, 2), " [", round(CI_L, 2), ", ", round(CI_U, 2), "]"
+    ),
+    models = fct_recode(models,
+      "reduced vs baseline" = "baseline.reduced",
+      "full vs baseline" = "baseline.full"
+    )
+  ) %>%
+  select(
+    models, age_group, contrast, `AUC gain [95% CI]`, P
+  ) %>%
+  kableExtra::kable(
+  caption = "Comparison of elastic net predictive models evaluating the gain in discriminative performance when including additional clinical characteristics. The `models` column compares either `reduced vs baseline` (adding clinical characteristics not primarily driven by supplementation) or `full vs baseline` (adding all clinical characteristics). `age_group` indicates the cohort (children or adults). `contrast` specifies the diet groups used for model training: `VN_OM` (vegans vs. omnivores), `VG_OM` (vegetarians vs. omnivores), and `VN_VG` (vegans vs. vegetarians). `AUC gain [95% CI]` represents the estimated improvement in out-of-sample AUC with a more complex model, with clustered bootstrap providing corresponding 95% confidence intervals. `P` indicates the p-value assessing the statistical significance of the AUC gain."
+)
+```
+
+
+### Visualize
+
+```{r, fig.width=6, fig.height=5}
+#| fig.cap: 'Results of elastic net predictive models distinguishing between diet groups, shown separately for adults (top) and children (bottom). Comparisons include vegans vs. omnivores (`VN vs OM`, left), vegetarians vs. omnivores (`VG vs OM`, middle), and vegans vs. vegetarians (`VN vs VG`, right). Models include `baseline` (only basic patient characteristics: age, sex, breastfeeding-related covariates and birth weight for children), `reduced` (adding clinical characteristics not primarily driven by supplementation), and `full` (including all clinical characteristics). Points represent out-of-sample AUC estimates, indicating the ability of models to discriminate between diet groups, with lines showing 95% confidence intervals estimated via clustered bootstrap.'
+
+p1 <- tr %>%
+  mutate(
+    contrast = factor(contrast, levels = c("VN_OM", "VG_OM", "VN_VG")),
+    model = factor(model, levels = c("baseline", "reduced", "full"))
+  ) %>%
+  ggplot(aes(x = AUC, y = model, color = model)) +
+  geom_point(size = 5, shape = 18) +
+  geom_segment(
+    aes(
+      x = CI_L, xend = CI_U,
+      y = model, yend = model
+    ),
+    linewidth = 1.1
+  ) +
+  coord_cartesian(xlim = c(0.1, 1)) +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  facet_wrap(~ age_group + contrast,
+    labeller = labeller(
+      contrast = c(
+        "VN_OM" = "VN vs OM",
+        "VG_OM" = "VG vs OM",
+        "VN_VG" = "VN vs VG"
+      )
+    )
+  ) +
+  theme(
+    axis.title.y = element_blank(),
+    legend.position = "bottom"
+  ) +
+  labs(
+    x = "Out-of-sample AUC",
+    color = "Model"
+  ) +
+  scale_color_manual(values = c(
+    "baseline" = "grey50",
+    "full" = "red",
+    "reduced" = "purple"
+  ))
+
+p1
+
+```
+
+
+
+# Reproducibility
+
+```{r, collapse=TRUE}
+sessionInfo()
+```
