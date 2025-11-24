@@ -15,15 +15,11 @@ Marina Heniková<sup>1,2</sup>, Anna Ouřadová<sup>1</sup>, Eliška Selinger<su
 
 ---------------------------------------------------------------------------------------------------
 
-This is a statistical report of the study currenlty *under review* in the [*Communications Medicine*](https://www.nature.com/commsmed) journal.
+This is a statistical report of the study [Dietary intake, nutritional status, and health outcomes among vegan, vegetarian, and omnivorous Czech families](https://www.nature.com/articles/s43856-025-01257-z) published in the *Communications Medicine* journal.
 
 When using this code or data, cite the original publication:
 
-> TO BE ADDED
-
-BibTex citation for the original publication:
-
-> TO BE ADDED
+> Heniková, M., Ouřadová, A., Selinger, E. et al. Dietary intake, nutritional status, and health outcomes among vegan, vegetarian, and omnivorous Czech families. Commun Med (2025). https://doi.org/10.1038/s43856-025-01257-z
 
 ---------------------------------------------------------------------------------------------------
 
